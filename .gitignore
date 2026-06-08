@@ -1,0 +1,65 @@
+# Environment
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.npm/
+
+# Build artifacts
+/build
+.output
+/.svelte-kit
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+._*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude / Cursor agent worktrees
+.claude/
+
+# BMad personal-scope config (per-user; never commit)
+_bmad/config.user.toml
+_bmad/**/*.user.toml
+
+# Vitest temp config files
+vitest.config.*.timestamp-*.mjs
+
+# Google Cloud credentials
+*.json
+!package.json
+!tsconfig.json
+!**/fixtures/**/*.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
+
+# Secrets / test artifacts
+test-secret.txt

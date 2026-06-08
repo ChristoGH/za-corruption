@@ -1,0 +1,203 @@
+---
+description: Project-specific rules for the medvoice repo. Merges with agent-operating-rules and karpathy-behavioral-guidelines. These override the general rules where they conflict. To force these rules to load outside the repo (e.g. when working on medvoice prompts in another workspace), change `alwaysApply` to true and remove the `globs` line.
+globs:
+  - "**/*"
+alwaysApply: false
+---
+
+# medvoice — project-specific agent rules
+
+These rules apply on top of the general agent operating rules and the
+Karpathy behavioural guidelines. They describe what is true for
+medvoice specifically. Where these rules conflict with the general
+rules, these win.
+
+## 1. POPIA Operator framing is load-bearing
+
+medvoice operates as a POPIA **Operator** (data processor). Medical
+practitioners are the **Responsible Party** (data controller).
+
+This framing is not marketing. It determines:
+- What data the app may store and for how long
+- What we say in public legal pages, DPAs, and consent flows
+- Whether SAHPRA classifies medvoice as Software as a Medical Device
+
+Do not write copy, comments, route handlers, schemas, or documentation
+that implies medvoice owns patient data, makes clinical decisions, or
+acts on patient information autonomously. If a change would blur the
+Operator / Responsible Party line, stop and ask.
+
+## 2. Never weaken compliance to make something work
+
+The following are non-negotiable in production (`ENVIRONMENT=production`):
+
+- `FIELD_ENCRYPTION_KEY` must be set. App fails loud at startup if missing.
+- `QDRANT_API_KEY` must be set. App fails loud at startup if missing.
+- `audit_log` writes must not be skipped, batched without durability,
+  or moved off the critical path of authenticated requests.
+- The 3-pass anonymiser (regex → spaCy NER → Claude validation) runs
+  before any write to a shared Qdrant collection. Do not bypass any pass.
+- `dpa_acceptances` and `patient_consents` rows are append-only.
+  Do not update or delete.
+
+In dev/test these can be relaxed. Never relax them in production code
+paths even temporarily. If a debugging change touches any of the above,
+it does not get committed.
+
+## 3. South African infrastructure context
+
+These are constraints, not optimisations:
+
+- Production region for STT and any latency-sensitive call: `africa-south1`
+  where available. Otherwise document the chosen region and why.
+- Network RTT from South Africa is meaningful. Prefer WebSocket streaming
+  over HTTP POST loops for any user-perceived latency budget under ~1s.
+- Default language is English. Code-switching (English ↔ Afrikaans
+  ↔ isiZulu ↔ isiXhosa) occurs in real dictation. Do not strip non-English
+  tokens. Do not assume single-language input.
+- SA medical conventions: paracetamol not acetaminophen, adrenaline not
+  epinephrine, salbutamol not albuterol, frusemide not furosemide.
+  Dosing abbreviations: BD, TDS, QID, PRN, stat.
+
+## 4. Positioning: documentation tool, not clinical assistant
+
+medvoice is positioned strictly as a transcription and documentation
+tool. It is not clinical decision support. It is not diagnostic. It
+does not advise.
+
+Do not add features, copy, prompts, or UI affordances that:
+- Suggest diagnoses
+- Recommend treatments, doses, or investigations
+- Interpret results
+- Generate clinical content the doctor did not say
+
+The medical cleanup LLM prompt is intentionally restrictive. Do not
+"improve" it without explicit user approval. If the prompt does not
+currently live at `backend/app/services/medical_cleanup.py`, find
+where it does and treat that location as authoritative.
+
+## 5. Tenancy reality
+
+medvoice runs effectively single-tenant today. Default doctor identity
+is `dev-doctor-1`. Role assignment is via `ADMIN_EMAILS` and
+`ALLOWED_EMAILS` environment variables.
+
+When working on data access:
+- Every query that reads patient or encounter data must scope by
+  `doctor_id`. There are no exceptions.
+- Do not add endpoints that return data across doctors unless the
+  request is explicitly for the shared anonymised Qdrant collection.
+- `reset_database()` and similar admin endpoints must be guarded
+  behind both `ENVIRONMENT != "production"` and an admin email check.
+  If you find such an endpoint without those guards, stop and surface it.
+
+## 6. Stack — do not introduce alternatives
+
+Established patterns. Use them. Do not introduce a second of any:
+
+- Backend framework: FastAPI (Python 3.12)
+- Persistence: SQLite (source of truth) + Qdrant (vector search)
+- Auth: Firebase ID token verification on the backend, Firebase
+  email/password on the frontend
+- LLM: Anthropic Claude via the official SDK directly. Do not route
+  through third-party LLM gateways.
+- STT live path: GCP Speech-to-Text V2 streaming via the
+  `voice_pipeline` WebSocket
+- STT pre-recorded path (where it exists): the `TranscriptionProvider`
+  abstraction in `backend/app/transcription/`. AssemblyAI primary,
+  Whisper fallback. Do not call AssemblyAI's SDK outside that module.
+- Frontend: React + Vite + TypeScript + Zustand. No Redux. No new
+  state library.
+- Styling: the Clinical Modernism system (warm off-white, deep medical
+  green accent, Fraunces serif display, single sans-serif body). No
+  mixing of additional font families.
+- Hosting: Google Cloud Run (`medvoice-dev-9541`, `us-central1`)
+
+If a task seems to require an alternative, surface that as a decision
+before implementing.
+
+## 7. Repo identity
+
+This is the **med-voice** repo. There is a separate, mothballed
+**medvoice-demo** repo (Cloudflare Pages SPA, in-browser Whisper).
+
+- Do not pull patterns from medvoice-demo without flagging it.
+- Do not assume the demo's architecture is current.
+- The canonical capture flow in med-voice is **single continuous
+  dictation → cleanup → LLM segmentation (routing only) →
+  review-with-gaps**, via `useEncounterCapture` and
+  `/api/v1/encounters/*` (notably `POST /encounters/{id}/dictation`).
+  The earlier per-field structured stepper was retired as the primary
+  path (ratified 2026-06-05; see
+  `docs/capture-redesign-phase0-recon.md`).
+- The segmentation pass only distributes content the doctor actually
+  dictated; it never invents, infers, or auto-fills a clinical field
+  (un-dictated fields stay empty and are flagged). This boundary is the
+  basis of the POPIA-Operator / outside-SaMD posture — see §9.
+
+## 8. Working-tree hygiene
+
+med-voice has historically accumulated large uncommitted working trees
+where significant modules sit untracked for long stretches. This is a
+bus-factor risk.
+
+Default expectations:
+- New modules should ship in a commit before the session ends.
+- If a new module is intentionally not committed, say so explicitly in
+  the final report.
+- Never claim a feature is "done" if its code is untracked.
+- `frontend/dist/` is currently committed. Do not add to its churn
+  during unrelated work.
+
+## 9. The "stop and ask" register for medvoice
+
+In addition to the general escalation rules, stop and ask before:
+
+- Adding a new top-level navigation item or removing one
+- Changing the `audit_log`, `dpa_*`, `patient_consents`,
+  `security_incidents`, `doctors`, or `deletion_requests` schemas
+- Adding any endpoint that touches the shared anonymised Qdrant
+  collection
+- Changing the medical cleanup prompt
+- Changing the segmentation prompt, or making segmentation generate,
+  infer, or auto-fill any clinical field (it must only route dictated
+  content — see §7)
+- Adding any feature that crosses doctor boundaries
+- Anything involving WhatsApp, SMS, or third-party transit of PHI
+- Anything that changes the public legal pages, DPA, or consent copy
+
+## 10. Final report — medvoice extras
+
+In addition to the standard `Changed / Verified / Assumptions / Notes`
+format, include:
+
+- **Compliance impact:** none / minor / requires review
+- **POPIA Operator framing impact:** none / requires review
+- **Untracked files at end of session:** list them, or write "none"
+
+## 11. Writing standard for user-facing and investor-facing text
+
+Public copy, README sections, business plan fragments, public legal
+pages, and Phase N+1 / roadmap statements should not contain:
+
+- "leverage" (as a verb), "synergy", "unlock value", "best-in-class",
+  "next-generation", "revolutionary", "seamless", "frictionless"
+- "AI-powered" used as a feature claim (describe what it does instead)
+- Any sentence that wouldn't survive an investor saying "prove it"
+- Claims of compliance that aren't backed by code or a referenced plan
+- Claims of capability that aren't backed by a working endpoint
+- The word "just" as a softener ("just click here", "we just need to")
+
+In code comments and internal-only docs this rule is relaxed.
+
+## 12. Persistence of analysis documents
+
+med-voice has a history of producing detailed analysis (audits, recon reports, drift registers, design proposals) inside chat that then evaporates. When the next session starts cold, the work has to be redone.
+
+When an agent produces an analysis document longer than ~500 words (audit, recon report, plan, design doc, retrospective), it must be saved to a file in `docs/` or `plans/` and the path reported in the final response. Chat-only artefacts are ephemeral and not acceptable for documents intended to inform future decisions.
+
+Apply to: audits of code against specs, reconnaissance reports, implementation plans, design documents, drift registers, post-mortems, sprint retrospectives.
+
+Skip for: code review comments on a single diff, conversational answers, short status updates, ephemeral tool output.
+
+Naming: `docs/<topic>-YYYY-MM-DD.md` for time-bound snapshots; `plans/NN-<topic>.md` for living implementation plans (use the next available NN prefix).
