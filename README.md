@@ -1,5 +1,3 @@
-Here is a complete README.md you can use as the starting point for the project.
-
 Commission Transcript Intelligence Platform
 
 A reproducible ingestion and intelligence pipeline for South African commission transcripts, starting with the Zondo Commission and extendable to the Madlanga Commission and other public commissions of inquiry.
@@ -11,6 +9,22 @@ The main design principle is:
 Mention ≠ Claim ≠ Finding ≠ Fact
 
 This project treats commission records as an evidence graph, not a truth graph.
+
+⸻
+
+Quick start (source retrieval)
+
+Milestone 1 (discover + download) is implemented. See [docs/getting-started.md](docs/getting-started.md) for full commands.
+
+```bash
+uv sync --all-packages --all-extras
+uv run retrieve-sources --commission madlanga --discover-only
+uv run retrieve-sources --commission zondo --discover-only          # DSFSI bootstrap (default)
+uv run retrieve-sources --commission both --download
+make test
+```
+
+Outputs: `data/sources/source_registry.jsonl` and `data/raw/{zondo,madlanga}/`.
 
 ⸻
 
@@ -323,44 +337,31 @@ law-enforcement appointments
 
 7. Repository Structure
 
-commission-transcript-intelligence/
+commission-intelligence-platform/
   README.md
-  docker-compose.yml
-  pyproject.toml
+  pyproject.toml          # uv workspace root
+  uv.lock
+  docker-compose.yml      # retrieval-only ingestion service
+  Makefile
   .env.example
   data/
-    raw_pdfs/
-    processed/
-    sources/
-  notebooks/
-    exploration.ipynb
-  src/
-    config.py
-    discovery/
-      zondo.py
-      madlanga.py
+    sources/              # source_registry.jsonl (tracked)
+    raw/zondo/            # downloads (gitignored)
+    raw/madlanga/
+  packages/
     ingestion/
-      download.py
-      parse_pdf.py
-      chunking.py
-      pipeline.py
-    extraction/
-      entities.py
-      roles.py
-      events.py
-      claims.py
-    stores/
-      qdrant_store.py
-      neo4j_store.py
-    ontology/
-      constraints.cypher
-      seed_taxonomy.cypher
-    search/
-      semantic_search.py
-      graph_queries.py
-  tests/
-    test_chunking.py
-    test_speaker_parser.py
+      commission_ingestion/
+        discovery/        # zondo, zondo_bootstrap, madlanga adapters
+        download/
+        models/
+        cli/
+      tests/
+  scripts/
+    retrieve_sources.py
+  docs/
+    getting-started.md
+    ontology.md
+    build-plan-shared-core.md
 
 ⸻
 
@@ -414,22 +415,17 @@ http://localhost:6333
 
 9. Installation
 
-This project assumes Python 3.11 or newer.
+Python 3.12+ (managed via `.python-version`). Use uv from the repo root:
 
-Using uv:
+```bash
+uv sync --all-packages --all-extras
+uv run playwright install chromium   # optional; for Zondo manual-session harvest
+make test
+```
 
-uv venv
-uv pip install -e .
-python -m spacy download en_core_web_trf
-playwright install chromium
+For source retrieval only, see [docs/getting-started.md](docs/getting-started.md).
 
-Or using pip:
-
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-python -m spacy download en_core_web_trf
-playwright install chromium
+Future ingestion stages (spaCy, Qdrant, Neo4j) are not required yet.
 
 ⸻
 
@@ -793,17 +789,15 @@ Answer questions using only transcript passages and cite the source hearing day 
 
 23. Current Status
 
-Planned initial implementation.
+**Implemented:** source discovery + download (Milestone 1)
+- Madlanga: ~108 transcript PDFs from `hearing.php` embedded JSON
+- Zondo bootstrap: DSFSI plaintext transcripts (`authoritative=false`, CC-BY-SA-4.0)
+- Registry: `data/sources/source_registry.jsonl`
+- CLI: `uv run retrieve-sources`
 
-Recommended build order:
+**Blocked / unverified:** Zondo official PDFs (Cloudflare; manual session required)
 
-1. Zondo transcript ingestion.
-2. Qdrant semantic search.
-3. Neo4j mention graph.
-4. Madlanga transcript ingestion.
-5. Claims and event extraction.
-6. Review interface.
-7. RAG interface.
+**Planned next:** PDF/text parsing, speaker chunking, Qdrant, Neo4j, claims extraction, review UI, RAG.
 
 ⸻
 

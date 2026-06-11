@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "commission-ingestion"
+version = "0.1.0"
+description = "Source discovery and retrieval for South African commission transcripts"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+playwright = ["playwright==1.49.0"]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+retrieve-sources = "commission_ingestion.cli.retrieve_sources:run_cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["commission_ingestion"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

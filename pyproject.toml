@@ -1,0 +1,19 @@
+[project]
+name = "commission-intelligence-platform"
+version = "0.1.0"
+description = "Commission transcript intelligence platform (monorepo root)"
+requires-python = ">=3.12"
+dependencies = [
+    "commission-ingestion",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4",
+]
+
+[tool.uv.workspace]
+members = ["packages/ingestion"]
+
+[tool.uv.sources]
+commission-ingestion = { workspace = true }

@@ -1,0 +1,8 @@
+services:
+  ingestion:
+    build:
+      context: .
+      dockerfile: infra/docker/ingestion/Dockerfile
+    volumes:
+      - ./data:/app/data
+    working_dir: /app

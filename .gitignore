@@ -63,3 +63,12 @@ htmlcov/
 
 # Secrets / test artifacts
 test-secret.txt
+
+# Downloaded commission PDFs (keep directory structure via .gitkeep)
+/data/raw/**
+!/data/raw/
+!/data/raw/*/
+!**/.gitkeep
+
+# Playwright session secrets (manual Zondo harvest)
+playwright-storage-state.json
