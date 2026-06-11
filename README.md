@@ -41,13 +41,13 @@ see [DISCLAIMER.md](DISCLAIMER.md).
 | Download (+SHA256, validation) | ✅ Implemented |
 | Source registry (JSONL, idempotent upsert) | ✅ Implemented |
 | Parse PDF → speaker-aware chunks | ✅ Implemented (Madlanga: 15,022 chunks) |
-| Descriptive corpus statistics (Post #1) | 🔜 Next |
+| Descriptive corpus statistics (Post #1) | ✅ Implemented |
 | Embeddings → Qdrant | ⬜ Planned |
 | Graph load → Neo4j | ⬜ Planned |
 | LLM-assisted claim/event extraction (Claude SDK) | ⬜ Planned |
 | API + web (search → chunk → graph) | ⬜ Planned |
 
-`41` passing tests across ingestion + parsing. See [docs/project-state.md](docs/project-state.md)
+`46` passing tests across ingestion, parsing, and statistics. See [docs/project-state.md](docs/project-state.md)
 for a verified, detailed snapshot.
 
 ---
@@ -60,7 +60,9 @@ the documents themselves are not):
 **Madlanga Commission** — 181 records (109 transcripts, plus statements, reports, notices,
 media, and supporting documents). Transcripts span **107 hearing days** (the Commission
 has sat to **Day 110**); Days 4, 14, and 104 are not in the public record and Day 6 was
-unreachable at source. All from the official site.
+unreachable at source. All from the official site. Parsed (M1): **18,485 pages →
+82,739 speaker turns → 15,022 chunks**, ~3.7M words, 103 distinct speaker labels — every
+chunk traceable to its PDF page.
 
 **Zondo / State Capture Commission** — 144 transcripts via a **non-authoritative**
 plaintext bootstrap (DSFSI); the official PDFs sit behind Cloudflare and are not yet
@@ -110,9 +112,8 @@ Full commands: [docs/getting-started.md](docs/getting-started.md).
 Madlanga-first; each milestone ends with a public, demonstrable artifact.
 
 - [x] **M0 — Public-repo readiness:** Apache-2.0, secrets audit, this README, CI green.
-- [~] **M1 — Parse + speaker-aware chunking** ✅ (all 108 transcripts → 15,022 chunks,
-      full page provenance, idempotent) **+ descriptive corpus statistics** 🔜 (next: the
-      stats/charts for Post #1).
+- [x] **M1 — Parse + speaker-aware chunking + descriptive statistics** ✅ (108 transcripts
+      → 15,022 chunks; stats: 18,485 pages, 82,739 turns, ~3.7M words; Post #1 charts).
 - [ ] **M2 — Embeddings + Qdrant** + local infra (docker-compose).
 - [ ] **M3 — Mentions-only graph in Neo4j** + a co-occurrence network render.
 - [ ] **M4 — Claims layer (Claude SDK)** behind a human-review gate.

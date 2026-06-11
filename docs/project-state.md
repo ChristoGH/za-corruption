@@ -1,10 +1,12 @@
 # Project State — Commission Transcript Intelligence Platform
 
 _Snapshot for planning. Last updated: 2026-06-11. Repo public at
-`github.com/ChristoGH/za-corruption` (CI green on `main`). **M0 complete; M1 parsing +
-chunking implemented** (all 108 Madlanga transcripts → 15,022 speaker-aware chunks with
-full page provenance, idempotent; 41 tests). M1's remaining piece is descriptive
-statistics / Post #1 charts. Parsing details: `docs/parse-notes.md`._
+`github.com/ChristoGH/za-corruption` (CI green on `main`). **M0 and M1 complete**: all 108
+Madlanga transcripts parse → 15,022 speaker-aware chunks (idempotent, full page
+provenance), and corpus statistics are generated — **18,485 pages, 82,739 turns, ~3.7M
+words, 103 speaker labels** (46 tests). Role/word-share attribution is heuristic and
+flagged PROVISIONAL (verify per-day witness, override via `--role-map`, before publishing).
+Parsing details: `docs/parse-notes.md`. Next: M2 (embeddings + Qdrant)._
 
 This document is a **factual snapshot** of what exists and works today, what is
 blocked, and what is not yet built — enough to ground a comprehensive plan forward.
@@ -51,6 +53,7 @@ official site → discover → download (+SHA256) → parse PDF → speaker-awar
 | Parse PDF (text + pages) | ✅ Implemented (Madlanga) | `parsing/pdf.py`, `clean.py` |
 | Speaker-aware chunking | ✅ Implemented (15,022 chunks) | `parsing/turns.py`, `chunking.py`, `cli/parse_corpus.py` |
 | Deterministic extraction (provenance backbone) | ✅ Implemented | `models/chunk_record.py` |
+| Descriptive corpus statistics (Post #1) | ✅ Implemented | `analysis/stats.py`, `charts.py`, `cli/corpus_stats.py` |
 | NLP extraction (spaCy entities/roles) | ❌ Not started | — |
 | LLM-assisted extraction (Claude SDK, claims/events) | ❌ Not started | — |
 | Embeddings → Qdrant | ❌ Not started | spec: `docs/qdrant-model.md` |

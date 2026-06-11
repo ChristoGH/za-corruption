@@ -50,13 +50,17 @@ The deterministic provenance backbone (state doc §7.5) **plus** the analysis sc
 that produces Post #1's charts. No NLP, no LLM, zero per-token cost, and zero
 defamation exposure — everything published is structure, not characterization.
 
-> **Status (2026-06-11): parsing + chunking ✅ DONE; statistics/charts 🔜 remaining.**
-> The `parsing/` module (pdf → clean/reflow → turns → chunking), `models/chunk_record.py`,
-> `cli/parse_corpus.py`, and tests are built and verified: **all 108 transcripts parse →
-> 15,022 chunks**, idempotent, 0 over-size, 0 id collisions, full page provenance. See
-> `docs/parse-notes.md`. **Decision during build:** `chunk_id = sha256(doc_sha256 :
-> index : text)` (not `sha256(text)` — identical short turns collided 187×). Still to do:
-> `cli/corpus_stats.py` + the Post #1 charts.
+> **Status (2026-06-11): M1 ✅ COMPLETE.** Parsing + chunking + statistics all built and
+> verified. `parsing/` (pdf → clean/reflow → turns → chunking), `models/chunk_record.py`,
+> `cli/parse_corpus.py`, `analysis/{stats,charts}.py`, `cli/corpus_stats.py`, 46 tests.
+> **All 108 transcripts → 15,022 chunks** (idempotent, 0 over-size, 0 id collisions, full
+> page provenance). **Corpus stats: 18,485 pages, 82,739 turns, ~3.7M words, 103 speaker
+> labels.** Charts (`parse-notes.md`, `--charts`): pages/day, cumulative, tempo, marathon,
+> role-share. **Decisions during build:** `chunk_id = sha256(doc_sha256 : index : text)`
+> (text-only collided 187×); oversized turns split on sentences. **Caveat for Post #1:**
+> the role/word-share split (counsel ~62% / witnesses ~29% / bench ~9%) is **heuristic and
+> flagged PROVISIONAL** — verify the per-day `witness` column and override via `--role-map`
+> before publishing that chart. The four structural charts are publishable as-is.
 
 > **Pre-step — ✅ DONE (2026-06-11; verified on all 108 downloaded transcripts via
 > PyMuPDF).** The format assumptions hold, and the schedule risk is largely retired:
