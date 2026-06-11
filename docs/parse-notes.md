@@ -46,6 +46,23 @@ transcripts (PyMuPDF). Read this before changing `parsing/`.
 - **Page numbers recorded are the 1-based PDF page index.** The printed "Page N of M"
   runs one behind (cover page); treat it as a cross-check, not the stored value.
 
+## Data-quality verification (2026-06-11, before Post #1)
+
+- **No scanned docs slipped through.** 0 of 108 parsed transcripts are image-only;
+  the parse manifest is 108/108 `ok` (no `needs_ocr`, no errors).
+- **Near-zero-page days are real short sittings, not parse failures.** Every day under
+  ~30 pages was checked: Day 10 (2pp, postponement — "Khumalo is not at his seat"),
+  Day 110 (2pp, a ruling), Days 11/13/39/61/67/70/100 (short procedural sittings, all
+  with multiple parsed turns). None are parse failures.
+- **The marathon day is genuine.** Day 43 ("…Day 43 Full.pdf", 462pp) has printed page
+  markers running 1→461 monotonically with a single "of 462" — a real single transcript,
+  not a doubled/combined upload.
+- **Day-count reconciliation (state precisely in any published copy):**
+  **106 distinct hearing days** parsed across **108 transcript documents** (Days 15 and
+  80 each have two parts). The Commission has sat to **Day 110**. Day numbers not parsed:
+  **4, 6, 14, 104** — Day 6 is a permanent 404 at source; 4/14/104 are absent from the
+  public record. 109 transcript records exist in the registry (108 downloaded).
+
 ## Known limits (deferred)
 
 - **Title ≠ role.** "ADV BEHARI" can be the *witness*, not counsel. Role/word-share

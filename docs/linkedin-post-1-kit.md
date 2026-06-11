@@ -9,31 +9,34 @@ non-technical reader finishes it; a technical reader clicks the repo._
 ## 1. The post (copy, ~210 words)
 
 > **I ran every available transcript of the Madlanga Commission through a pipeline.
-> Here's what [107] hearing days of testimony look like as data.** (Part 1 of a series)
+> Here's what 18,485 pages of testimony look like as data.** (Part 1 of a series)
 >
 > Like many South Africans, I've followed the Commission through headlines. But
 > headlines summarize — they can't show you the *shape* of the record itself.
 >
-> So I built one: every official hearing transcript I could obtain — [109] records
-> across [107] hearing days (the Commission has sat to Day 110) — [N] pages,
-> [N] speaker turns, [N million] words — parsed, cleaned, and indexed, with every
+> So I built one: every official hearing transcript I could obtain — 108 transcripts
+> across 106 hearing days (the Commission has sat to Day 110) — 18,485 pages,
+> 82,739 speaker turns, ~3.7 million words — parsed, cleaned, and indexed, with every
 > line traceable to its exact page in the official record.
 >
 > No AI opinions yet. Just structure. And the structure already talks:
 >
-> 📊 [Insight A — e.g. "Witnesses speak only [X]% of the words. The real engine of
-> the Commission is the evidence leaders, who account for [Y]%."]
+> 📊 [Insight A — PROVISIONAL, sign off via --role-map before publishing: "The
+> Commission's lawyers speak roughly twice as many words as its witnesses — counsel
+> ~62%, witnesses ~29%, the bench ~9%." Counterintuitive, and a strong lead — but the
+> role split is heuristic; verify the per-day witness column first, or hold it for Post #2.]
 >
-> 📈 [Insight B — e.g. "You can see Phase 2 begin in the data: average answer length
-> drops [X]% when cross-examination starts. Contested testimony has a tempo."]
+> 📈 [Insight B — from the tempo chart: median turn length runs ~35–40 words during
+> examination-in-chief, then falls below 15 during the rapid cross-examination weeks in
+> Feb–Mar. Contested testimony has a faster tempo. Confirm the phase dates before claiming them.]
 >
-> ⏱️ [Insight C — e.g. "The single longest day of testimony was Day [N] ([date]) —
-> [N] pages, [N] turns."]
+> ⏱️ The single longest day was Day 43 (3 December 2025) — 462 pages, 2,095 turns — a
+> day of legal argument in the sprint just before the interim report.
 >
 > Why do this? Because a record this important deserves to be *searchable, mappable,
 > and checkable* — not just summarized.
 >
-> Next in the series: asking [107] hearing days of testimony a question in plain English.
+> Next in the series: asking 106 hearing days of testimony a question in plain English.
 >
 > Everything is open source — link in the first comment. What would *you* ask this
 > record?
@@ -41,8 +44,9 @@ non-technical reader finishes it; a technical reader clicks the repo._
 **First comment (post immediately after publishing):**
 > 🔗 Repo (open source, Apache-2.0): [github link]
 > 📄 Official Commission records: https://criminaljusticecommission.org.za
-> 📊 Coverage: transcripts for [107] of the Commission's hearing days (it has sat to
-> Day 110); a few days aren't yet in the public record — the gaps are listed in the repo.
+> 📊 Coverage: transcripts for 106 of the Commission's hearing days (it has sat to
+> Day 110); Days 4, 14 and 104 aren't in the public record and Day 6 is a permanent 404
+> at source — the gaps are listed in the repo.
 > ⚖️ Note: everything here is drawn from public hearing records. Testimony is
 > allegation, not finding of fact — the project's data model enforces that
 > distinction (see DISCLAIMER.md in the repo).
@@ -60,7 +64,7 @@ Slides 2–6 are one chart each, one sentence each. Big numbers, minimal text.
 | # | Slide | Content |
 |---|---|---|
 | 1 | **Cover** | Series template, Part 01, title "THE COMMISSION, BY THE NUMBERS" |
-| 2 | **The corpus** | Four giant stat tiles: [109] transcripts · [N] pages · [N] speaker turns · [N]M words. Sub-line: "every line traceable to its page in the official record" |
+| 2 | **The corpus** | Four giant stat tiles: 108 transcripts · 18,485 pages · 82,739 speaker turns · 3.7M words. Sub-line: "every line traceable to its page in the official record" |
 | 3 | **Who does the talking** | Horizontal bar: share of words by procedural role (Evidence leaders / Witnesses / Chair / Legal reps). Caption = Insight A |
 | 4 | **The tempo of testimony** | Line/area: pages (or turns) per hearing day across all days; annotate recess gap (Dec 2025) and phase boundaries. Caption = Insight B |
 | 5 | **The marathon days** | Top-10 days by pages or turns, labelled with date + (publicly reported) witness. Caption = Insight C |

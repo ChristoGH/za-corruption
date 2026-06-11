@@ -61,6 +61,18 @@ defamation exposure — everything published is structure, not characterization.
 > the role/word-share split (counsel ~62% / witnesses ~29% / bench ~9%) is **heuristic and
 > flagged PROVISIONAL** — verify the per-day `witness` column and override via `--role-map`
 > before publishing that chart. The four structural charts are publishable as-is.
+>
+> **Chart-review pass (2026-06-11):** charts reworked to the cover palette with calendar-date
+> axes (the December recess now shows as a plateau), interim-report + recess annotations, a
+> War-and-Peace scale line (≈15×), gold-highlighted focal bars, source lines, ~2× export, and
+> alt text. Turn-tempo de-noised (days ≥50 turns, 5-day rolling median) — a real pattern
+> emerged (long examination-in-chief turns vs short Feb–Mar cross-examination); added an
+> interruption-proxy chart. Role-share regenerated from the corrected split (a stale 47.1%
+> PNG was caught and overwritten). Data checks done: near-zero days are real short sittings
+> (not parse failures); Day 43 is a genuine single 462pp transcript; precise counts locked —
+> **106 hearing days / 108 documents** (Days 15, 80 have two parts), to Day 110, gaps 4/6/14/104.
+> **Publish gate (before Post #1):** sign off the role-share via `--role-map`; confirm Insight-B
+> phase dates. Build (M2) need not wait.
 
 > **Pre-step — ✅ DONE (2026-06-11; verified on all 108 downloaded transcripts via
 > PyMuPDF).** The format assumptions hold, and the schedule risk is largely retired:

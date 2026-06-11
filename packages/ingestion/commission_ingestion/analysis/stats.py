@@ -108,6 +108,7 @@ class DayStats:
     n_words: int
     witness: str | None
     median_turn_words: float
+    short_turn_share: float = 0.0  # fraction of turns < 15 words (interruption proxy)
     speakers: dict[str, int] = field(default_factory=dict)  # label -> words
     role_words: dict[str, int] = field(default_factory=dict)  # role -> words
 
@@ -138,6 +139,11 @@ def aggregate_day(
         n_words=sum(turn_lengths),
         witness=witness,
         median_turn_words=statistics.median(turn_lengths) if turn_lengths else 0.0,
+        short_turn_share=(
+            sum(1 for n in turn_lengths if n < 15) / len(turn_lengths)
+            if turn_lengths
+            else 0.0
+        ),
         speakers=dict(speakers),
         role_words=dict(role_words),
     )
@@ -167,9 +173,13 @@ def summarise(
         for r in ROLES
     }
 
+    distinct_days = {d.day_no for d in days_sorted if d.day_no is not None}
     return {
         "totals": {
-            "hearing_days": len(days_sorted),
+            # Distinct hearing-day numbers vs transcript documents: a few days
+            # (e.g. 15, 80) have two transcript parts, so these differ.
+            "hearing_days": len(distinct_days),
+            "transcript_documents": len(days_sorted),
             "pages": sum(d.n_pages for d in days_sorted),
             "turns": sum(d.n_turns for d in days_sorted),
             "words": total_words,
@@ -196,6 +206,7 @@ def summarise(
                 "turns": d.n_turns,
                 "words": d.n_words,
                 "median_turn_words": d.median_turn_words,
+                "short_turn_share": round(d.short_turn_share, 3),
                 "witness": d.witness,
             }
             for d in days_sorted

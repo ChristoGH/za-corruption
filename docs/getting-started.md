@@ -25,6 +25,8 @@ uv run playwright install chromium
 |---|---|---|---|
 | Discover (Madlanga) | **Implemented + verified** | `uv run retrieve-sources --commission madlanga --discover-only` | `data/sources/source_registry.jsonl` |
 | Download (Madlanga) | **Implemented + verified** | `uv run retrieve-sources --commission madlanga --download` | `data/raw/madlanga/` |
+| Check for new publications | **Implemented** | `uv run retrieve-sources --commission madlanga --discover-only --write-report` | `reports/source-checks/` |
+| Download new only | **Implemented** | `uv run retrieve-sources --commission madlanga --download-new-only --write-report` | registry + `data/raw/` + reports |
 | Discover (Zondo bootstrap) | **Implemented, non-authoritative** | `uv run retrieve-sources --commission zondo --zondo-source bootstrap --discover-only` | same registry |
 | Download (Zondo bootstrap) | **Implemented** | `uv run retrieve-sources --commission zondo --zondo-source bootstrap --download` | `data/raw/zondo/*.txt` |
 | Discover (Zondo official PDFs) | **Blocked (Cloudflare)** | `uv run retrieve-sources --commission zondo --zondo-source official --discover-only` | requires manual session |
@@ -95,6 +97,32 @@ uv run retrieve-sources --commission zondo --zondo-source official --discover-on
 ```bash
 uv run retrieve-sources --commission both --zondo-source bootstrap --download
 ```
+
+### Check for new publications
+
+Re-run discovery against the live site and compare URLs to the registry. A publication is "new" when its canonical URL is not yet in `source_registry.jsonl`.
+
+```bash
+# Discover only — prints New: N in the summary
+uv run retrieve-sources --commission madlanga --discover-only
+
+# Discover and write JSON + Markdown reports (even when New: 0)
+uv run retrieve-sources --commission madlanga --discover-only --write-report
+
+# Discover, download only newly found records, and write reports
+uv run retrieve-sources --commission madlanga --download-new-only --write-report
+```
+
+Reports are written to `reports/source-checks/` (gitignored, regenerable). Each run produces a timestamped pair:
+
+- `source-check_YYYYMMDDTHHMMSSZ.json` — machine-readable summary and new-publication list
+- `source-check_YYYYMMDDTHHMMSSZ.md` — human-readable summary
+
+**Limitations:**
+
+- New means a newly discovered URL, not a content revision at an existing URL (use `--force` to re-download known URLs).
+- Zondo official PDF monitoring requires a manual Cloudflare session; Madlanga and Zondo bootstrap are fully supported.
+- No scheduler is included — run manually or wire into cron/CI yourself.
 
 ### Makefile shortcuts
 

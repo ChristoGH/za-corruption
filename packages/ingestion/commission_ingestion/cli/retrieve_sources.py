@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from commission_ingestion.discovery.madlanga import MadlangaDiscoveryAdapter
@@ -16,6 +17,14 @@ from commission_ingestion.download.downloader import (
 )
 from commission_ingestion.download.registry import DEFAULT_REGISTRY_PATH, SourceRegistry
 from commission_ingestion.models.source_record import SourceRecord
+from commission_ingestion.reporting.source_check import (
+    DEFAULT_REPORT_DIR,
+    DiscoveryResult,
+    DownloadStats,
+    SourceCheckReport,
+    resolve_new_records,
+    write_report,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +54,11 @@ def run_discovery(
     registry: SourceRegistry,
     *,
     zondo_source: str = "bootstrap",
-) -> tuple[int, int, int, int]:
-    """Discover sources and upsert into registry.
-
-    Returns (discovered, new, known, non_authoritative).
-    """
+) -> DiscoveryResult:
+    """Discover sources and upsert into registry."""
     slugs = ["zondo", "madlanga"] if commission == "both" else [commission]
     discovered = 0
-    new_count = 0
+    new_records: list[SourceRecord] = []
     known_count = 0
     non_authoritative = 0
 
@@ -66,14 +72,19 @@ def run_discovery(
         non_authoritative += sum(1 for r in records if not r.authoritative)
 
         for record in records:
-            _, is_new = registry.upsert(record)
+            merged, is_new = registry.upsert(record)
             if is_new:
-                new_count += 1
+                new_records.append(merged)
             else:
                 known_count += 1
 
     registry.save()
-    return discovered, new_count, known_count, non_authoritative
+    return DiscoveryResult(
+        discovered_count=discovered,
+        new_records=new_records,
+        known_count=known_count,
+        non_authoritative_count=non_authoritative,
+    )
 
 
 def run_downloads(
@@ -82,22 +93,19 @@ def run_downloads(
     *,
     force: bool = False,
     raw_dir: Path | None = None,
-) -> tuple[int, int, int, int]:
-    """Download pending records for the selected commission(s).
-
-    Returns (downloaded, skipped, missing, failed).
-    """
+    only_urls: set[str] | None = None,
+) -> DownloadStats:
+    """Download pending records for the selected commission(s)."""
     slugs = {"zondo", "madlanga"} if commission == "both" else {commission}
-    downloaded = 0
-    skipped = 0
-    missing = 0
-    failed = 0
+    stats = DownloadStats()
 
     for record in registry.all():
         if record.commission_slug not in slugs:
             continue
+        if only_urls is not None and record.url not in only_urls:
+            continue
         if record.downloaded and not force:
-            skipped += 1
+            stats.skipped += 1
             continue
         try:
             updated = download_source(
@@ -107,11 +115,11 @@ def run_downloads(
             )
             registry.upsert(updated)
             if updated.downloaded:
-                downloaded += 1
+                stats.downloaded += 1
             elif is_missing_at_source(updated):
-                missing += 1
+                stats.missing += 1
             else:
-                failed += 1
+                stats.failed += 1
         except Exception as exc:
             logger.exception("Download failed for %s", record.url)
             registry.upsert(
@@ -122,10 +130,10 @@ def run_downloads(
                     }
                 )
             )
-            failed += 1
+            stats.failed += 1
 
     registry.save()
-    return downloaded, skipped, missing, failed
+    return stats
 
 
 def _log_duplicate_sha256_groups(registry: SourceRegistry) -> None:
@@ -165,7 +173,12 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument(
         "--download",
         action="store_true",
-        help="Discover sources, then download files",
+        help="Discover sources, then download all pending files",
+    )
+    mode.add_argument(
+        "--download-new-only",
+        action="store_true",
+        help="Discover sources, then download only records newly found in this run",
     )
     parser.add_argument(
         "--registry",
@@ -183,6 +196,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--force",
         action="store_true",
         help="Re-download even when SHA256 is already recorded",
+    )
+    parser.add_argument(
+        "--write-report",
+        action="store_true",
+        help="Write JSON and Markdown reports for this run",
+    )
+    parser.add_argument(
+        "--report-dir",
+        type=Path,
+        default=DEFAULT_REPORT_DIR,
+        help="Directory for generated reports (default: reports/source-checks)",
     )
     parser.add_argument(
         "-v",
@@ -205,42 +229,62 @@ def run_cli(argv: list[str] | None = None) -> int:
     registry = SourceRegistry(args.registry)
     registry.load()
     known_before = len(registry.known_urls())
+    run_at = datetime.now(timezone.utc)
 
-    discovered, new_count, known_count, non_auth = run_discovery(
+    discovery = run_discovery(
         args.commission,
         registry,
         zondo_source=args.zondo_source,
     )
+    new_urls = [r.url for r in discovery.new_records]
 
-    downloaded = 0
-    skipped = 0
-    missing = 0
-    failed = 0
-    if args.download:
-        downloaded, skipped, missing, failed = run_downloads(
+    download_stats: DownloadStats | None = None
+    if args.download or args.download_new_only:
+        only_urls = set(new_urls) if args.download_new_only else None
+        download_stats = run_downloads(
             registry,
             args.commission,
             force=args.force,
             raw_dir=args.raw_dir,
+            only_urls=only_urls,
         )
         _log_duplicate_sha256_groups(registry)
+
+    report_records = resolve_new_records(
+        {r.url: r for r in registry.all()},
+        new_urls,
+    )
 
     print("Source retrieval summary")
     print(f"  Commission:       {args.commission}")
     if args.commission in {"zondo", "both"}:
         print(f"  Zondo source:     {args.zondo_source}")
-    print(f"  Discovered:       {discovered}")
-    print(f"  New:              {new_count}")
-    print(f"  Already known:    {known_count}")
-    print(f"  Non-authoritative:{non_auth}")
-    if args.download:
-        print(f"  Downloaded:       {downloaded}")
-        print(f"  Skipped:          {skipped}")
-        print(f"  Missing:          {missing}")
-        print(f"  Failed:           {failed}")
+    print(f"  Discovered:       {discovery.discovered_count}")
+    print(f"  New:              {discovery.new_count}")
+    print(f"  Already known:    {discovery.known_count}")
+    print(f"  Non-authoritative:{discovery.non_authoritative_count}")
+    if download_stats is not None:
+        print(f"  Downloaded:       {download_stats.downloaded}")
+        print(f"  Skipped:          {download_stats.skipped}")
+        print(f"  Missing:          {download_stats.missing}")
+        print(f"  Failed:           {download_stats.failed}")
     print(f"  Registry (total): {len(registry.known_urls())} (was {known_before})")
     print(f"  Registry path:    {args.registry.resolve()}")
 
+    if args.write_report:
+        report = SourceCheckReport(
+            run_at=run_at,
+            commission=args.commission,
+            zondo_source=args.zondo_source if args.commission in {"zondo", "both"} else None,
+            discovery=discovery,
+            download=download_stats,
+            new_records=report_records,
+        )
+        json_path, md_path = write_report(report, report_dir=args.report_dir)
+        print(f"  Report (JSON):    {json_path.resolve()}")
+        print(f"  Report (MD):      {md_path.resolve()}")
+
+    failed = download_stats.failed if download_stats is not None else 0
     return 1 if failed > 0 else 0
 
 

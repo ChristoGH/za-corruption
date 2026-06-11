@@ -136,7 +136,8 @@ def run_cli(argv: list[str] | None = None) -> int:
     t = summary["totals"]
     share = summary["role_word_share_pct"]
     print("Corpus statistics —", args.commission)
-    print(f"  Hearing days:     {t['hearing_days']}")
+    print(f"  Hearing days:     {t['hearing_days']} (distinct day numbers)")
+    print(f"  Transcript docs:  {t['transcript_documents']}")
     print(f"  PDF pages:        {t['pages']:,}")
     print(f"  Speaker turns:    {t['turns']:,}")
     print(f"  Words:            {t['words']:,}")

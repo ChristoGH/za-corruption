@@ -47,7 +47,7 @@ see [DISCLAIMER.md](DISCLAIMER.md).
 | LLM-assisted claim/event extraction (Claude SDK) | ⬜ Planned |
 | API + web (search → chunk → graph) | ⬜ Planned |
 
-`46` passing tests across ingestion, parsing, and statistics. See [docs/project-state.md](docs/project-state.md)
+`51` passing tests across ingestion, parsing, and statistics. See [docs/project-state.md](docs/project-state.md)
 for a verified, detailed snapshot.
 
 ---
@@ -60,9 +60,9 @@ the documents themselves are not):
 **Madlanga Commission** — 181 records (109 transcripts, plus statements, reports, notices,
 media, and supporting documents). Transcripts span **107 hearing days** (the Commission
 has sat to **Day 110**); Days 4, 14, and 104 are not in the public record and Day 6 was
-unreachable at source. All from the official site. Parsed (M1): **18,485 pages →
-82,739 speaker turns → 15,022 chunks**, ~3.7M words, 103 distinct speaker labels — every
-chunk traceable to its PDF page.
+unreachable at source. All from the official site. Parsed (M1): **108 transcript documents
+across 106 hearing days → 18,485 pages → 82,739 speaker turns → 15,022 chunks**, ~3.7M
+words, 103 distinct speaker labels — every chunk traceable to its PDF page.
 
 **Zondo / State Capture Commission** — 144 transcripts via a **non-authoritative**
 plaintext bootstrap (DSFSI); the official PDFs sit behind Cloudflare and are not yet

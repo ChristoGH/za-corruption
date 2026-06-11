@@ -75,5 +75,8 @@ test-secret.txt
 !/data/processed/
 !/data/processed/*/
 
+# Source-check reports — regenerable run artifacts
+/reports/
+
 # Playwright session secrets (manual Zondo harvest)
 playwright-storage-state.json

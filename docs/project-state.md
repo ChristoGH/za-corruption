@@ -3,8 +3,9 @@
 _Snapshot for planning. Last updated: 2026-06-11. Repo public at
 `github.com/ChristoGH/za-corruption` (CI green on `main`). **M0 and M1 complete**: all 108
 Madlanga transcripts parse → 15,022 speaker-aware chunks (idempotent, full page
-provenance), and corpus statistics are generated — **18,485 pages, 82,739 turns, ~3.7M
-words, 103 speaker labels** (46 tests). Role/word-share attribution is heuristic and
+provenance), and corpus statistics are generated — **108 transcript docs / 106 hearing
+days, 18,485 pages, 82,739 turns, ~3.7M words, 103 speaker labels** (51 tests).
+Role/word-share attribution is heuristic and
 flagged PROVISIONAL (verify per-day witness, override via `--role-map`, before publishing).
 Parsing details: `docs/parse-notes.md`. Next: M2 (embeddings + Qdrant)._
 
