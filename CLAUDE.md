@@ -53,8 +53,9 @@ the summary.
   shared role/position, Claude SDK extraction).
 
 **Background (superseded where they conflict with the canonical model):**
-- `README.md` — full original project spec (goals, architecture, roadmap, safety notes).
-  Still the best narrative overview; defer to `docs/` for ontology/store/relationship detail.
+- `docs/vision.md` — the full original project spec (goals, architecture, roadmap, safety
+  notes), preserved as narrative overview; defer to `docs/` for ontology/store/relationship
+  detail. (The root `README.md` is now the concise public front door, not the spec.)
 - `directory-structure.md` — the intended monorepo layout. **Decision: scaffold the full
   monorepo** — `apps/api` (FastAPI), `apps/web` (React+Vite),
   `packages/{ingestion,ontology,shared}` — not the doc's smaller "minimal starting
@@ -63,7 +64,7 @@ the summary.
   controlled vocabularies (now formalised in `docs/ontology.md`).
 
 When the documents disagree, precedence is: `docs/` canonical model → `docs/` build plans
-→ `README.md` → other root docs.
+→ `docs/vision.md` (original spec) → other root docs.
 
 ## The one principle that governs the whole design
 
@@ -150,6 +151,9 @@ Repo-specific notes:
   to mutate. Don't reformat or "clean" original evidence text in a way that loses
   provenance.
 - This corpus contains serious allegations about named, often private, individuals.
-  Keep the safety posture from `README.md` §21: preserve source evidence, never present
-  testimony as proven fact, keep confidence + method metadata, support human review.
-- No license is chosen yet (`README.md` §24). Don't assume one.
+  Keep the safety posture from `docs/vision.md` §21 (and `DISCLAIMER.md`): preserve source
+  evidence, never present testimony as proven fact, keep confidence + method metadata,
+  support human review.
+- License: **Apache-2.0** for the code (`LICENSE`/`NOTICE`); the underlying records are
+  official public records (not relicensed) and derived artifacts are CC BY 4.0 — see
+  `DISCLAIMER.md`.

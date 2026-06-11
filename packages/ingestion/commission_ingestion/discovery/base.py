@@ -20,7 +20,7 @@ from commission_ingestion.models.source_record import SourceRecord
 logger = logging.getLogger(__name__)
 
 DEFAULT_USER_AGENT = (
-    "transcript-research-bot/0.1 contact: christo.w.strydom@gmail.com"
+    "transcript-research-bot/0.1 (+https://github.com/ChristoGH/za-corruption)"
 )
 DEFAULT_REQUEST_DELAY_SECONDS = 0.75
 

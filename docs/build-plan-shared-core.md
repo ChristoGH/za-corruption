@@ -150,7 +150,7 @@ services:
     image: neo4j:5.26
     ports: ["7474:7474", "7687:7687"]
     environment:
-      NEO4J_AUTH: neo4j/password123
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-changeme}
       NEO4J_PLUGINS: '["apoc"]'
     volumes: ["neo4j_data:/data", "neo4j_logs:/logs"]
 volumes: { qdrant_storage:, neo4j_data:, neo4j_logs: }
