@@ -108,8 +108,10 @@ Full commands: [docs/getting-started.md](docs/getting-started.md).
 
 Madlanga-first; each milestone ends with a public, demonstrable artifact.
 
-- [ ] **M0 — Public-repo readiness:** license ✅, secrets audit ✅, this README, CI.
+- [x] **M0 — Public-repo readiness:** Apache-2.0, secrets audit, this README, CI green.
 - [ ] **M1 — Parse + speaker-aware chunking** + descriptive corpus statistics.
+      _(Feasibility verified: all 108 downloaded transcripts are born-digital — 0 scanned,
+      ~18,500 pages — with consistent speaker labels.)_
 - [ ] **M2 — Embeddings + Qdrant** + local infra (docker-compose).
 - [ ] **M3 — Mentions-only graph in Neo4j** + a co-occurrence network render.
 - [ ] **M4 — Claims layer (Claude SDK)** behind a human-review gate.

@@ -14,10 +14,16 @@ Conventions used below:
 
 ---
 
-## M0 — Public-repo readiness (do first, ~2–3 evenings)
+## M0 — Public-repo readiness ✅ COMPLETE (2026-06-11)
 
 The repo *is* the consultant credibility anchor, so it goes public before Post #1,
 not after.
+
+**Done:** repo public at `github.com/ChristoGH/za-corruption`; Apache-2.0 `LICENSE` +
+`NOTICE` + content `DISCLAIMER.md` (CC BY 4.0 derived artifacts); secrets/history audit
+(clean; personal email and `password123` placeholder removed); public front-door
+`README.md`; GitHub Actions CI (uv + pytest) **green on `main`**. Residual nicety: a
+non-personal takedown contact in `DISCLAIMER.md` (currently a placeholder).
 
 **Build**
 
@@ -44,22 +50,37 @@ The deterministic provenance backbone (state doc §7.5) **plus** the analysis sc
 that produces Post #1's charts. No NLP, no LLM, zero per-token cost, and zero
 defamation exposure — everything published is structure, not characterization.
 
-> **Pre-step (do before writing any parser — this is the schedule risk).** Open the
-> actual text of 3–5 Madlanga PDFs and confirm the transcript format: are speaker
-> labels really line-initial / uppercase, and is the furniture (headers, line numbers,
-> timestamps) consistent? Post #1's lead chart ("who does the talking") depends on
-> reliable speaker attribution. **If labels are inconsistent or OCR-garbled, fall back
-> Post #1 to the corpus-size + sitting-calendar story** (needs only page counts + dates,
-> not roles) and defer role analysis. Don't commit to word-share-by-role until the
-> format is verified on real pages.
+> **Pre-step — ✅ DONE (2026-06-11; verified on all 108 downloaded transcripts via
+> PyMuPDF).** The format assumptions hold, and the schedule risk is largely retired:
+>
+> - **Born-digital, not scanned** — 0 of 108 are image-only (mean ~1,300 chars/page;
+>   **18,485 PDF pages** total). Keep a `needs_ocr` detector defensively, but it is not
+>   expected to fire. The "who does the talking" lead chart **is viable.**
+> - **Speaker labels are line-initial, uppercase, colon-terminated** as assumed
+>   (`CHAIRPERSON:`, `ADV CHASKALSON SC:`, `LT-GEN SIBIYA:`, `MR MOGOTSI:`) — ~109k
+>   candidate labels corpus-wide.
+> - **Three hazards found, now folded into the build tasks below:**
+>   1. **~37,000 standalone line-number tokens** — the margin "10, 20, 30 …" numbers
+>      extract as their own lines, interleaved mid-turn. **This is the dominant cleaning
+>      task**; strip standalone numeric lines before turn detection.
+>   2. **Headings/procedural lines masquerade as labels** (`EXAMINATION IN CHIEF BY …:`,
+>      `CROSS-EXAMINATION BY …:`, `<NAME> (duly sworn states)`). Detect turns with a
+>      **positive title-prefix** pattern, not just "uppercase + colon".
+>   3. **Speaker-label spelling drift** — same person as `SEGEELS-NCUBE` / `SEGEELS -NCUBE`,
+>      `LT-GEN` / `LT GEN`. **Normalise labels at M1** (whitespace/hyphen); accurate
+>      word-share-by-role needs it — don't fully defer to M3.
+> - **Page-label offset:** the printed "Page N of M" runs one behind the PDF page index
+>   (cover page). Record the PDF page index for provenance; treat "Page N of M" as a
+>   cross-check, and use the running header `<DATE> – DAY <N>` to validate registry
+>   day/date.
 
 **Build**
 
 | Task | Where |
 |---|---|
 | `parsing/` module: PyMuPDF page extraction → `{page_no, text, char_count}`; scanned-page detector (mean chars/page < threshold ⇒ flag `needs_ocr` in registry notes, skip — never emit empty chunks) | `packages/ingestion/.../parsing/pdf.py` |
-| Transcript furniture stripping: inspect 3 real Madlanga records first, then strip recurring headers/footers, margin line-numbers, timestamps; patterns as named constants with a short `PARSE_NOTES.md` | `parsing/clean.py`, `docs/parse-notes.md` |
-| Speaker-turn detection: line-initial, short, uppercase labels (`CHAIRPERSON:`, `ADV CHASKALSON SC:`, `LT GEN MKHWANAZI:`) → turns `{speaker_label, text, page_start, page_end}`; defensive against mid-sentence colons | `parsing/turns.py` |
+| Transcript furniture stripping (**format verified — see pre-step**): drop standalone line-number tokens (~37k corpus-wide — the dominant task), the per-page running header `<DATE> – DAY <N>` and `Page N of M`, leading blank lines, and collapse whitespace; patterns as named constants with a short `parse-notes.md` | `parsing/clean.py`, `docs/parse-notes.md` |
+| Speaker-turn detection via a **positive title-prefix** label pattern (`ADV` / `MR` / `MS` / `DR` / `LT-GEN` / `LT GEN` / `GEN` / `MAJ-GEN` / `CHAIRPERSON` / `COMMISSIONER` … + surname `[SC]:`) → turns `{speaker_label, text, page_start, page_end}`; **filter heading/procedural false-positives** (`EXAMINATION IN CHIEF BY …:`, `… (duly sworn states)`) and **normalise label spelling** (hyphen/whitespace drift) | `parsing/turns.py` |
 | Chunking: pack consecutive turns ≤ `CHUNK_MAX_CHARS` (~1800), never split a turn; `chunk_id = sha256(text)`; carry `{doc_sha256, day_no, date, page_start, page_end, speakers[]}` | `parsing/chunking.py` |
 | Output: one JSONL per document in `data/processed/madlanga/`, schema versioned like `SourceRecord` | `models/chunk_record.py` |
 | `cli/parse_corpus.py`: reads registry (status=downloaded, source_type=transcript), writes processed JSONL, idempotent (skip if output exists with matching `doc_sha256`), `--limit`, `--day` | `cli/` |
@@ -67,10 +88,12 @@ defamation exposure — everything published is structure, not characterization.
 | Tests: turn detection on a real-page fixture; chunk page-range maps back to actual PDF page text; idempotent re-run | `packages/ingestion/tests/` |
 
 **AC**
-- ≥ 100 of 109 transcripts parse cleanly end-to-end; every failure is classified
-  (`needs_ocr` / parse error) in the registry, not silent.
+- All 108 downloaded transcripts parse end-to-end (0 are scanned — verified in the
+  pre-step); the 1 missing transcript (Day 6, 404 at source) stays flagged. Any parse
+  failure is classified (`needs_ocr` / parse error) in the registry, not silent.
 - Spot-check: 5 random chunks visually match the cited PDF pages.
-- Furniture (headers, line numbers, timestamps) absent from turn text.
+- **No standalone line-number token survives into any chunk's text** (assert on a real-page fixture).
+- Furniture (running header, `Page N of M`, line numbers) absent from turn text.
 - Re-running `parse_corpus` is a no-op; stats script regenerates identical numbers.
 - Stats script emits the headline numbers (days, pages, turns, words, distinct speaker
   labels) as a small JSON so the post copy is generated from data, not memory.

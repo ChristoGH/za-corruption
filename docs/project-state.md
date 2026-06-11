@@ -1,6 +1,8 @@
 # Project State — Commission Transcript Intelligence Platform
 
-_Snapshot for planning. Last updated: 2026-06-11. Branch: `master` @ `4957ff5`._
+_Snapshot for planning. Last updated: 2026-06-11. Repo public at
+`github.com/ChristoGH/za-corruption` (CI green on `main`). **M0 (public-repo readiness)
+complete**; M1 (parsing) is next and its feasibility is verified (see §2)._
 
 This document is a **factual snapshot** of what exists and works today, what is
 blocked, and what is not yet built — enough to ground a comprehensive plan forward.
@@ -54,6 +56,13 @@ official site → discover → download (+SHA256) → parse PDF → speaker-awar
 | FastAPI query layer (`apps/api`) | ❌ Not started (dir not scaffolded) | — |
 | React/Vite frontend (`apps/web`) | ❌ Not started (dir not scaffolded) | — |
 | Human review workflow | ❌ Not started | — |
+
+**M1 feasibility verified (2026-06-11, PyMuPDF over all 108 downloaded transcripts):**
+parsing is "Not started" as *code*, but the input is de-risked — **0 of 108 are scanned**
+(born-digital, mean ~1,300 chars/page, **18,485 PDF pages**), speaker labels are
+line-initial/uppercase/colon-terminated as assumed (~109k corpus-wide), and the main
+cleaning hazard is ~37k interleaved line-number tokens (not OCR). See the M1 pre-step in
+`docs/milestone-plan.md`.
 
 **MVP success test (still the target):** search Qdrant for a topic → open a result →
 jump from that chunk into Neo4j to see connected people/orgs/places/hearing day, with
@@ -174,14 +183,14 @@ the canonical store docs, so confirm before pinning).
 
 ### Decisions the plan must make (these change *what* gets built)
 
-1. **First-corpus decision — Zondo-first (per ADR) vs Madlanga-first (per reality)
-   (highest).** ADR/build-plans say build on Zondo first. But *today* Zondo is blocked
-   and bootstrap-grade, while **Madlanga has 109 authoritative PDFs with 109/109 valid
-   `day_no`+`date`** — a clean, paged corpus ready for parsing now. The shared-core/adapter
-   architecture is unchanged either way; the question is only which corpus drives the
-   parse→chunk→extract build first. Recommendation to debate: **build the pipeline on
-   Madlanga first** (real PDFs, full provenance spine), keep Zondo bootstrap as a
-   second/parallel collection, and revisit Zondo-official when the harvest is unblocked.
+1. **First-corpus decision — ✅ DECIDED: Madlanga-first.** ADR/build-plans originally said
+   Zondo-first, but *today* Zondo is blocked and bootstrap-grade, while **Madlanga has 109
+   authoritative PDFs with 109/109 valid `day_no`+`date`** (and verified born-digital — 0
+   scanned) — a clean, paged corpus ready for parsing now. The shared-core/adapter
+   architecture is unchanged. The pipeline is built on **Madlanga first** (real PDFs, full
+   provenance spine); Zondo bootstrap stays a second/parallel collection, with Zondo-official
+   revisited when the harvest is unblocked (M-Z). The build is sequenced this way in
+   `docs/milestone-plan.md`.
 
 2. **Zondo authoritative source (high).** Either solve the Cloudflare harvest (manual
    session capture, residential proxy, or official data request) or formally accept the
