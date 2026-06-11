@@ -1,8 +1,10 @@
 # Project State — Commission Transcript Intelligence Platform
 
 _Snapshot for planning. Last updated: 2026-06-11. Repo public at
-`github.com/ChristoGH/za-corruption` (CI green on `main`). **M0 (public-repo readiness)
-complete**; M1 (parsing) is next and its feasibility is verified (see §2)._
+`github.com/ChristoGH/za-corruption` (CI green on `main`). **M0 complete; M1 parsing +
+chunking implemented** (all 108 Madlanga transcripts → 15,022 speaker-aware chunks with
+full page provenance, idempotent; 41 tests). M1's remaining piece is descriptive
+statistics / Post #1 charts. Parsing details: `docs/parse-notes.md`._
 
 This document is a **factual snapshot** of what exists and works today, what is
 blocked, and what is not yet built — enough to ground a comprehensive plan forward.
@@ -46,9 +48,9 @@ official site → discover → download (+SHA256) → parse PDF → speaker-awar
 | Discover (structured) | ✅ Implemented & verified | `discovery/` |
 | Download (+SHA256, validate) | ✅ Implemented & verified | `download/downloader.py` |
 | Source registry (JSONL, upsert) | ✅ Implemented & verified | `download/registry.py` |
-| Parse PDF (text + pages) | ❌ Not started | — |
-| Speaker-aware chunking | ❌ Not started | — |
-| Deterministic extraction (provenance backbone) | ❌ Not started | — |
+| Parse PDF (text + pages) | ✅ Implemented (Madlanga) | `parsing/pdf.py`, `clean.py` |
+| Speaker-aware chunking | ✅ Implemented (15,022 chunks) | `parsing/turns.py`, `chunking.py`, `cli/parse_corpus.py` |
+| Deterministic extraction (provenance backbone) | ✅ Implemented | `models/chunk_record.py` |
 | NLP extraction (spaCy entities/roles) | ❌ Not started | — |
 | LLM-assisted extraction (Claude SDK, claims/events) | ❌ Not started | — |
 | Embeddings → Qdrant | ❌ Not started | spec: `docs/qdrant-model.md` |

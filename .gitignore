@@ -70,5 +70,10 @@ test-secret.txt
 !/data/raw/*/
 !**/.gitkeep
 
+# Parsed chunk output — derived, regenerable from data/raw via parse-corpus
+/data/processed/**
+!/data/processed/
+!/data/processed/*/
+
 # Playwright session secrets (manual Zondo harvest)
 playwright-storage-state.json

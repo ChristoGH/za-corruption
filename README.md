@@ -40,13 +40,14 @@ see [DISCLAIMER.md](DISCLAIMER.md).
 | Source discovery (structured) | ✅ Implemented |
 | Download (+SHA256, validation) | ✅ Implemented |
 | Source registry (JSONL, idempotent upsert) | ✅ Implemented |
-| Parse PDF → speaker-aware chunks | 🔜 Next |
+| Parse PDF → speaker-aware chunks | ✅ Implemented (Madlanga: 15,022 chunks) |
+| Descriptive corpus statistics (Post #1) | 🔜 Next |
 | Embeddings → Qdrant | ⬜ Planned |
 | Graph load → Neo4j | ⬜ Planned |
 | LLM-assisted claim/event extraction (Claude SDK) | ⬜ Planned |
 | API + web (search → chunk → graph) | ⬜ Planned |
 
-`33` passing tests on the ingestion layer. See [docs/project-state.md](docs/project-state.md)
+`41` passing tests across ingestion + parsing. See [docs/project-state.md](docs/project-state.md)
 for a verified, detailed snapshot.
 
 ---
@@ -109,9 +110,9 @@ Full commands: [docs/getting-started.md](docs/getting-started.md).
 Madlanga-first; each milestone ends with a public, demonstrable artifact.
 
 - [x] **M0 — Public-repo readiness:** Apache-2.0, secrets audit, this README, CI green.
-- [ ] **M1 — Parse + speaker-aware chunking** + descriptive corpus statistics.
-      _(Feasibility verified: all 108 downloaded transcripts are born-digital — 0 scanned,
-      ~18,500 pages — with consistent speaker labels.)_
+- [~] **M1 — Parse + speaker-aware chunking** ✅ (all 108 transcripts → 15,022 chunks,
+      full page provenance, idempotent) **+ descriptive corpus statistics** 🔜 (next: the
+      stats/charts for Post #1).
 - [ ] **M2 — Embeddings + Qdrant** + local infra (docker-compose).
 - [ ] **M3 — Mentions-only graph in Neo4j** + a co-occurrence network render.
 - [ ] **M4 — Claims layer (Claude SDK)** behind a human-review gate.
