@@ -1,8 +1,8 @@
 # Commission Transcript Intelligence Platform
 
+[![CI](https://github.com/ChristoGH/za-corruption/actions/workflows/ci.yml/badge.svg)](https://github.com/ChristoGH/za-corruption/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Data: CC BY 4.0](https://img.shields.io/badge/Data-CC_BY_4.0-lightgrey.svg)](DISCLAIMER.md)
-<!-- CI badge to be added with the GitHub Actions workflow (M0). -->
 
 > Make the public record of South Africa's commissions of inquiry **searchable,
 > mappable, and checkable** — without ever presenting testimony as proven fact.
