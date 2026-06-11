@@ -1,0 +1,19 @@
+Commission Transcript Intelligence Platform
+Copyright 2026 Christo Strydom
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+------------------------------------------------------------------------------
+Source content notice (this is NOT covered by the Apache License above)
+------------------------------------------------------------------------------
+
+The commission-of-inquiry transcripts and related documents processed by this
+software are official public records of South African commissions of inquiry
+(e.g. the Madlanga Commission / Criminal Justice Commission, and the Zondo /
+State Capture Commission). Those records are the property of their respective
+sources and are NOT licensed under the Apache License, Version 2.0.
+
+This project claims no ownership of the underlying records. It provides software
+plus derived structure (text chunks, statistics, and graph data) over public
+material. See DISCLAIMER.md for provenance, the terms applying to derived
+artifacts, the evidence-not-truth data model, and the takedown process.
