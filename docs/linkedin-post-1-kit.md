@@ -9,21 +9,25 @@ non-technical reader finishes it; a technical reader clicks the repo._
 ## 1. The post (copy, ~210 words)
 
 > **I ran every available transcript of the Madlanga Commission through a pipeline.
-> Here's what 18,485 pages of testimony look like as data.** (Part 1 of a series)
+> Here's what 18,192 pages of testimony look like as data.** (Part 1 of a series)
 >
 > Like many South Africans, I've followed the Commission through headlines. But
 > headlines summarize — they can't show you the *shape* of the record itself.
 >
-> So I built one: every official hearing transcript I could obtain — 108 transcripts
-> across 106 hearing days (the Commission has sat to Day 110) — 18,485 pages,
-> 82,739 speaker turns, ~3.7 million words — parsed, cleaned, and indexed, with every
+> So I built one: every official hearing transcript I could obtain — 106 transcripts
+> across 106 hearing days (the Commission has sat to Day 110) — 18,192 pages,
+> 81,712 speaker turns, ~3.65 million words — parsed, cleaned, and indexed, with every
 > line traceable to its exact page in the official record.
+>
+> [Optional credibility beat: the pipeline's integrity check caught the same sitting
+> published twice — twice — including a "Full" PDF that was actually the partial copy.
+> 293 pages of double-counting removed before any of these numbers were locked.]
 >
 > No AI opinions yet. Just structure. And the structure already talks:
 >
 > 📊 [Insight A — PROVISIONAL, sign off via --role-map before publishing: "The
 > Commission's lawyers speak roughly twice as many words as its witnesses — counsel
-> ~62%, witnesses ~29%, the bench ~9%." Counterintuitive, and a strong lead — but the
+> ~61%, witnesses ~29%, the bench ~10%." Counterintuitive, and a strong lead — but the
 > role split is heuristic; verify the per-day witness column first, or hold it for Post #2.]
 >
 > 📈 [Insight B — from the tempo chart: median turn length runs ~35–40 words during
@@ -64,12 +68,12 @@ Slides 2–6 are one chart each, one sentence each. Big numbers, minimal text.
 | # | Slide | Content |
 |---|---|---|
 | 1 | **Cover** | Series template, Part 01, title "THE COMMISSION, BY THE NUMBERS" |
-| 2 | **The corpus** | Four giant stat tiles: 108 transcripts · 18,485 pages · 82,739 speaker turns · 3.7M words. Sub-line: "every line traceable to its page in the official record" |
+| 2 | **The corpus** | Four giant stat tiles: 106 transcripts · 18,192 pages · 81,712 speaker turns · 3.65M words. Sub-line: "every line traceable to its page in the official record" |
 | 3 | **Who does the talking** | Horizontal bar: share of words by procedural role (Evidence leaders / Witnesses / Chair / Legal reps). Caption = Insight A |
 | 4 | **The tempo of testimony** | Line/area: pages (or turns) per hearing day across all days; annotate recess gap (Dec 2025) and phase boundaries. Caption = Insight B |
 | 5 | **The marathon days** | Top-10 days by pages or turns, labelled with date + (publicly reported) witness. Caption = Insight C |
 | 6 | **How it's built** | Ultra-simple pipeline graphic: Official PDFs → parse → speaker turns → searchable index. One line: "No AI judgments yet — that's later in the series, carefully." |
-| 7 | **CTA** | "Part 2: ask [107] hearing days of testimony anything." + repo QR/handle + disclaimer footer line |
+| 7 | **CTA** | "Part 2: ask 106 hearing days of testimony anything." + repo QR/handle + disclaimer footer line |
 
 ---
 
@@ -117,8 +121,8 @@ public roles already extensively reported.
 ## 5. Pitch note (hold until after Post #3, but draft now)
 
 Daily Maverick / TechCentral, 120-word email:
-> I've parsed and indexed every available transcript of the Madlanga Commission — [N]
-> pages across [107] hearing days (it has sat to Day 110) — into a searchable,
+> I've parsed and indexed every available transcript of the Madlanga Commission — 18,192
+> pages across 106 hearing days (it has sat to Day 110) — into a searchable,
 > page-citable archive and an evidence
 > graph. The structure of the record itself tells stories the daily coverage can't:
 > [Insight A], [network finding from M3]. I'd like to offer a piece (with original

@@ -30,6 +30,9 @@ SOURCE_LINE = (
 )
 # Minimum turns before a day's median is trustworthy (small-sample guard).
 MIN_TURNS_FOR_TEMPO = 50
+# Consecutive hearing days further apart than this break the rolling lines —
+# a recess must show as a gap, never a bridging segment.
+MAX_BRIDGE_DAYS = 7
 
 
 def _mpl():
@@ -83,12 +86,29 @@ def _finish(fig, path: Path, *, source: bool = True) -> None:
 
 
 def _rolling(values: list[float], window: int = 5) -> list[float]:
+    """Trailing mean over the *hearing-day sequence* — never calendar days."""
     out: list[float] = []
     for i in range(len(values)):
         lo = max(0, i - window + 1)
         chunk = values[lo : i + 1]
         out.append(sum(chunk) / len(chunk))
     return out
+
+
+def insert_gaps(
+    x: list[datetime.date], y: list[float], max_gap_days: int = MAX_BRIDGE_DAYS
+) -> tuple[list[datetime.date], list[float]]:
+    """NaN-break a plotted series wherever consecutive hearing days are more
+    than ``max_gap_days`` apart, so matplotlib leaves a visible gap."""
+    xs: list[datetime.date] = []
+    ys: list[float] = []
+    for i, (day, value) in enumerate(zip(x, y)):
+        if i and (day - x[i - 1]).days > max_gap_days:
+            xs.append(x[i - 1] + datetime.timedelta(days=1))
+            ys.append(float("nan"))
+        xs.append(day)
+        ys.append(value)
+    return xs, ys
 
 
 def chart_cumulative_pages(summary: dict, path: Path) -> str:
@@ -106,16 +126,22 @@ def chart_cumulative_pages(summary: dict, path: Path) -> str:
     ax.text(INTERIM_REPORT, total * 0.08, " Interim report\n delivered, 17 Dec",
             color=TEAL, fontsize=9, va="bottom")
     multiple = total / WAR_AND_PEACE_PAGES
-    ax.axhline(total, color=GOLD, lw=1, ls=":")
-    ax.text(x[0], total * 1.01, f"≈ {multiple:.0f}× the length of War and Peace",
-            color=GOLD, fontsize=10, fontweight="bold", va="bottom")
+    # Reference at 1× near the bottom — the climb crosses it within weeks.
+    ax.axhline(WAR_AND_PEACE_PAGES, color=GOLD, lw=1.2, ls=":")
+    ax.text(x[-1], WAR_AND_PEACE_PAGES + total * 0.012,
+            "War and Peace — all of it", color=GOLD, fontsize=10,
+            fontweight="bold", va="bottom", ha="right")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
     ax.set_ylabel("Cumulative transcript pages")
-    ax.set_title(f"The record so far — {total:,} pages of testimony")
+    ax.set_title(
+        f"The record so far — {total:,} pages, ≈{multiple:.0f}× War and Peace"
+    )
     _finish(fig, path)
-    return (f"Area chart: cumulative transcript pages over time reach {total:,} pages "
-            f"(about {multiple:.0f} times the length of War and Peace), with a visible "
-            f"plateau during the December–January recess.")
+    return (f"Area chart: cumulative transcript pages over time reach {total:,} pages, "
+            f"about {multiple:.0f} times the length of War and Peace. A gold dotted "
+            f"line at {WAR_AND_PEACE_PAGES:,} pages (one War and Peace) sits near the "
+            "bottom, crossed within the first weeks; the December–January recess shows "
+            "as a plateau.")
 
 
 def chart_pages_per_day(summary: dict, path: Path) -> str:
@@ -130,7 +156,7 @@ def chart_pages_per_day(summary: dict, path: Path) -> str:
     _shade_recess(ax)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
     ax.set_ylabel("Transcript pages")
-    ax.set_title("The tempo of testimony — pages per hearing day")
+    ax.set_title("Day by day — transcript pages per sitting")
     _finish(fig, path)
     return ("Bar chart: transcript pages for each hearing day on a calendar axis; the "
             f"longest day ({y[peak]} pages) is highlighted, and the December recess shows "
@@ -143,14 +169,16 @@ def chart_turn_tempo(summary: dict, path: Path) -> str:
     x = [_date(d) for d in days]
     y = _rolling([d["median_turn_words"] for d in days], 5)
     fig, ax = plt.subplots(figsize=(12, 5.5))
-    ax.plot(x, y, color=TEAL, lw=2)
+    ax.plot(*insert_gaps(x, y), color=TEAL, lw=2)
     _shade_recess(ax)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
     ax.set_ylabel("Median words per turn (5-day rolling)")
     ax.set_title(f"The tempo of testimony — median turn length (days ≥{MIN_TURNS_FOR_TEMPO} turns)")
     _finish(fig, path)
     return ("Line chart: 5-day rolling median of words per speaker turn across hearing "
-            "days with at least 50 turns, on a calendar axis with the recess marked.")
+            "days with at least 50 turns, on a calendar axis. The rolling window is "
+            "over hearing days in sequence, not calendar days; the line breaks across "
+            "the December–January recess rather than bridging it.")
 
 
 def chart_interruption_proxy(summary: dict, path: Path) -> str:
@@ -159,14 +187,16 @@ def chart_interruption_proxy(summary: dict, path: Path) -> str:
     x = [_date(d) for d in days]
     y = _rolling([100 * d.get("short_turn_share", 0) for d in days], 5)
     fig, ax = plt.subplots(figsize=(12, 5.5))
-    ax.plot(x, y, color=GOLD, lw=2)
+    ax.plot(*insert_gaps(x, y), color=GOLD, lw=2)
     _shade_recess(ax)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
     ax.set_ylabel("Share of short (<15-word) turns, %")
     ax.set_title("The rhythm of cross-examination — share of short, rapid turns")
     _finish(fig, path)
     return ("Line chart: 5-day rolling share of turns under 15 words per hearing day — a "
-            "proxy for rapid, contested back-and-forth — on a calendar axis.")
+            "proxy for rapid, contested back-and-forth — on a calendar axis. The rolling "
+            "window is over hearing days in sequence, not calendar days; the line breaks "
+            "across the December–January recess rather than bridging it.")
 
 
 def chart_role_word_share(summary: dict, path: Path) -> str:

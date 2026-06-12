@@ -40,14 +40,15 @@ see [DISCLAIMER.md](DISCLAIMER.md).
 | Source discovery (structured) | ✅ Implemented |
 | Download (+SHA256, validation) | ✅ Implemented |
 | Source registry (JSONL, idempotent upsert) | ✅ Implemented |
-| Parse PDF → speaker-aware chunks | ✅ Implemented (Madlanga: 15,022 chunks) |
-| Descriptive corpus statistics (Post #1) | ✅ Implemented |
-| Embeddings → Qdrant (semantic search CLI) | ✅ Implemented (15,022 points, bge-small-en-v1.5) |
+| Parse PDF → speaker-aware chunks | ✅ Implemented (Madlanga: 14,783 active chunks) |
+| Descriptive corpus statistics + integrity pass (Post #1) | ✅ Implemented (blocking duplicate/reconciliation checks) |
+| Embeddings → Qdrant (semantic search CLI) | ✅ Implemented (14,783 points, bge-small-en-v1.5) |
 | Graph load → Neo4j | ⬜ Planned (constraints + docker service ready) |
 | LLM-assisted claim/event extraction (Claude SDK) | ⬜ Planned |
 | API + web (search → chunk → graph) | ⬜ Planned |
 
-`57` passing tests across ingestion, parsing, statistics, and the vector store. See [docs/project-state.md](docs/project-state.md)
+`70` passing tests across ingestion, parsing, statistics, integrity checks, charts, and
+the vector store. See [docs/project-state.md](docs/project-state.md)
 for a verified, detailed snapshot.
 
 ---
@@ -60,8 +61,10 @@ the documents themselves are not):
 **Madlanga Commission** — 181 records (109 transcripts, plus statements, reports, notices,
 media, and supporting documents). Transcripts span **107 hearing days** (the Commission
 has sat to **Day 110**); Days 4, 14, and 104 are not in the public record and Day 6 was
-unreachable at source. All from the official site. Parsed (M1): **108 transcript documents
-across 106 hearing days → 18,485 pages → 82,739 speaker turns → 15,022 chunks**, ~3.7M
+unreachable at source. All from the official site. After a content-containment integrity
+pass found two duplicate publications of the same sittings (recorded as `superseded_by`
+in the registry, files retained), the active corpus is: **106 transcript documents
+across 106 hearing days → 18,192 pages → 81,712 speaker turns → 14,783 chunks**, ~3.65M
 words, 103 distinct speaker labels — every chunk traceable to its PDF page.
 
 **Zondo / State Capture Commission** — 144 transcripts via a **non-authoritative**
@@ -112,10 +115,13 @@ Full commands: [docs/getting-started.md](docs/getting-started.md).
 Madlanga-first; each milestone ends with a public, demonstrable artifact.
 
 - [x] **M0 — Public-repo readiness:** Apache-2.0, secrets audit, this README, CI green.
-- [x] **M1 — Parse + speaker-aware chunking + descriptive statistics** ✅ (108 transcripts
-      → 15,022 chunks; stats: 18,485 pages, 82,739 turns, ~3.7M words; Post #1 charts).
-- [x] **M2 — Embeddings + Qdrant** + local infra (docker-compose) ✅ (all 15,022 chunks
-      embedded and searchable: `search-corpus "query" [--day N] [--speaker LABEL]`).
+- [x] **M1 — Parse + speaker-aware chunking + descriptive statistics** ✅ (now 106 active
+      transcripts → 14,783 chunks; stats: 18,192 pages, 81,712 turns, ~3.65M words;
+      Post #1 charts regenerate via `make post-assets` into `assets/post1/`).
+- [x] **M2 — Embeddings + Qdrant** + local infra (docker-compose) ✅ (all 14,783 active
+      chunks embedded and searchable: `search-corpus "query" [--day N] [--speaker LABEL]`;
+      a blocking integrity pass caught two duplicate publications — both excluded via
+      human-reviewed `superseded_by` registry records and purged from the store).
 - [ ] **M3 — Mentions-only graph in Neo4j** + a co-occurrence network render.
 - [ ] **M4 — Claims layer (Claude SDK)** behind a human-review gate.
 - [ ] **M5 — Thin public surface** (FastAPI + a read-only web page) for the end-to-end flow.

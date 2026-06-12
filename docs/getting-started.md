@@ -33,7 +33,8 @@ uv run playwright install chromium
 | Download (Zondo bootstrap) | **Implemented** | `uv run retrieve-sources --commission zondo --zondo-source bootstrap --download` | `data/raw/zondo/*.txt` |
 | Discover (Zondo official PDFs) | **Blocked (Cloudflare)** | `uv run retrieve-sources --commission zondo --zondo-source official --discover-only` | requires manual session |
 | Parse / chunk | **Implemented + verified** | `uv run parse-corpus --commission madlanga` | `data/processed/madlanga/*.jsonl` |
-| Corpus statistics | **Implemented + verified** | `uv run corpus-stats --charts` | `data/processed/stats/` |
+| Corpus statistics + integrity pass | **Implemented + verified** | `uv run corpus-stats --charts` | `data/processed/stats/` (blocks on duplicate/reconciliation errors) |
+| Post #1 assets (committed) | **Implemented + verified** | `make post-assets` | `assets/post1/` (6 PNGs + `alt_text.md`) |
 | Qdrant ingest | **Implemented + verified** | `uv run load-qdrant --commission madlanga` | `commission_transcripts` collection |
 | Semantic search | **Implemented + verified** | `uv run search-corpus "query" [--day N] [--speaker LABEL]` | ranked, page-cited hits |
 | Neo4j ingest | Planned (M3) | constraints ready: `infra/neo4j/constraints.cypher` | evidence graph |
@@ -141,6 +142,7 @@ make retrieve-download COMMISSION=both ZONDO_SOURCE=bootstrap
 make stores-up            # docker compose up -d qdrant neo4j
 make neo4j-constraints    # apply infra/neo4j/constraints.cypher
 make load-qdrant          # embed + upsert parsed chunks
+make post-assets          # corpus stats + integrity pass + Post #1 charts
 ```
 
 ## Semantic search (M2)
@@ -173,6 +175,27 @@ uv run search-corpus "bail decision" --speaker CHAIRPERSON --limit 3
 The first `load-qdrant` run downloads the embedding model (~130 MB) and embeds
 ~15k chunks (minutes on Apple Silicon / a recent CPU). Requires the `vector`
 extra (installed by `uv sync --all-packages --all-extras`).
+
+Registry records marked `superseded_by` (duplicate publications of the same
+sitting, set by a human after reviewing the integrity report) are never loaded,
+and any points they previously contributed are purged on the next run.
+
+## Post assets (Post #1)
+
+One command regenerates the publication assets from the corpus — deterministic,
+so re-running on unchanged data changes no output bytes:
+
+```bash
+make post-assets          # = uv run corpus-stats --charts --out assets/post1/
+```
+
+It first runs a **blocking integrity pass** (content-containment duplicate
+detection across same-day/same-date/adjacent-day documents, hard reconciliation
+of totals) and refuses to write anything if the corpus is inconsistent.
+Outputs land in `assets/post1/` (tracked in git — the citable record behind the
+post): six PNGs plus `alt_text.md`, with every number interpolated from the
+computed stats. The stats JSON lands in `data/processed/stats/`. Requires the
+`stats` extra (matplotlib).
 
 ## Docker (retrieval only)
 
