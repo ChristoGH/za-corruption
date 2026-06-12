@@ -128,6 +128,19 @@ defamation exposure — everything published is structure, not characterization.
 
 ## M2 — Embeddings + Qdrant + infra (~1 week)
 
+> **Status (2026-06-11): M2 ✅ COMPLETE.** All build tasks landed and ACs verified live:
+> `docker-compose.yml` gained pinned `qdrant/qdrant:v1.18.2` + `neo4j:5.26-community`
+> (APOC, `NEO4J_AUTH` via `$NEO4J_PASSWORD`); `infra/neo4j/constraints.cypher` written
+> and applied (12 constraints). `vector/{embedder,qdrant_store}.py` + `cli/load_qdrant.py`
+> + `cli/search.py` (`load-qdrant` / `search-corpus` entry points). **All 15,022 chunks
+> loaded; collection count == chunk count; re-load skips 108/108 docs in ~2s and adds
+> zero points.** 5 thematic queries verified with correct day/page payloads, and a hit's
+> cited pages spot-checked against the source PDF text. Point ids are
+> `uuid5(NAMESPACE_URL, chunk_id)` (sha kept in payload) — `docs/qdrant-model.md`
+> updated to match. `sentence-transformers` is an optional `vector` extra so CI stays
+> torch-free; 6 new tests run against in-memory Qdrant (suite: 57). Post #2 recording
+> can be cut from `search-corpus` output as-is.
+
 **Build**
 
 | Task | Where |

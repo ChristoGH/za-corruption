@@ -1,12 +1,14 @@
-# Getting Started — Source Retrieval
+# Getting Started — Source Retrieval, Parsing & Search
 
-Operational guide for discovering and downloading commission source artifacts.
+Operational guide for discovering, downloading, parsing and semantically
+searching commission source artifacts.
 
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) (recommended) or Python 3.12+
-- Optional: Docker (reproducible runs with Playwright preinstalled)
-- **No Qdrant or Neo4j required** for source retrieval
+- Optional: Docker (reproducible retrieval runs, and the Qdrant/Neo4j stores)
+- **No Qdrant or Neo4j required** for source retrieval or parsing — only for
+  the semantic-search stage (M2+)
 
 ## Setup (uv)
 
@@ -30,9 +32,11 @@ uv run playwright install chromium
 | Discover (Zondo bootstrap) | **Implemented, non-authoritative** | `uv run retrieve-sources --commission zondo --zondo-source bootstrap --discover-only` | same registry |
 | Download (Zondo bootstrap) | **Implemented** | `uv run retrieve-sources --commission zondo --zondo-source bootstrap --download` | `data/raw/zondo/*.txt` |
 | Discover (Zondo official PDFs) | **Blocked (Cloudflare)** | `uv run retrieve-sources --commission zondo --zondo-source official --discover-only` | requires manual session |
-| Parse / chunk | Planned | — | `data/interim/`, `data/processed/` |
-| Qdrant ingest | Planned | — | `commission_transcripts` collection |
-| Neo4j ingest | Planned | — | evidence graph |
+| Parse / chunk | **Implemented + verified** | `uv run parse-corpus --commission madlanga` | `data/processed/madlanga/*.jsonl` |
+| Corpus statistics | **Implemented + verified** | `uv run corpus-stats --charts` | `data/processed/stats/` |
+| Qdrant ingest | **Implemented + verified** | `uv run load-qdrant --commission madlanga` | `commission_transcripts` collection |
+| Semantic search | **Implemented + verified** | `uv run search-corpus "query" [--day N] [--speaker LABEL]` | ranked, page-cited hits |
+| Neo4j ingest | Planned (M3) | constraints ready: `infra/neo4j/constraints.cypher` | evidence graph |
 
 ```mermaid
 flowchart LR
@@ -41,13 +45,16 @@ flowchart LR
     registry[source_registry.jsonl]
     download[retrieve-sources --download]
     raw[data/raw/slug/]
+    parse[parse-corpus]
+    chunks[speaker chunks JSONL]
+    qdrant[load-qdrant → commission_transcripts]
+    search[search-corpus]
     discover --> registry --> download --> raw
+    raw --> parse --> chunks --> qdrant --> search
   end
   subgraph future [Planned]
-    parse[parse PDF/txt]
-    chunk[speaker chunks]
-    stores[Qdrant + Neo4j]
-    raw --> parse --> chunk --> stores
+    graphload[Neo4j evidence graph M3]
+    chunks --> graphload
   end
 ```
 
@@ -131,7 +138,41 @@ make install
 make test
 make retrieve-discover COMMISSION=madlanga
 make retrieve-download COMMISSION=both ZONDO_SOURCE=bootstrap
+make stores-up            # docker compose up -d qdrant neo4j
+make neo4j-constraints    # apply infra/neo4j/constraints.cypher
+make load-qdrant          # embed + upsert parsed chunks
 ```
+
+## Semantic search (M2)
+
+Embeds parsed chunks with `BAAI/bge-small-en-v1.5` (384-dim, cosine,
+normalised) into the single shared Qdrant collection `commission_transcripts`
+(see `docs/qdrant-model.md`), then searches it with payload filters.
+
+```bash
+# 1. Start the stores (Qdrant on :6333, Neo4j on :7474/:7687).
+#    Neo4j auth comes from $NEO4J_PASSWORD (default: changeme).
+docker compose up -d qdrant neo4j
+
+# 2. Apply the graph constraints once (idempotent; needed before M3 ingestion).
+docker compose exec -T neo4j cypher-shell -u neo4j -p "${NEO4J_PASSWORD:-changeme}" \
+  < infra/neo4j/constraints.cypher
+
+# 3. Embed + load all parsed chunks. Idempotent: a re-run skips documents whose
+#    chunks are already in the collection and upserts by deterministic point id
+#    (uuid5 of the chunk_id), so it never duplicates points.
+uv run load-qdrant --commission madlanga
+
+# 4. Search — every hit prints day, date, page range, speakers, snippet, and
+#    the official PDF URL.
+uv run search-corpus "disbanding of the political killings task team"
+uv run search-corpus "threats against investigators" --day 3
+uv run search-corpus "bail decision" --speaker CHAIRPERSON --limit 3
+```
+
+The first `load-qdrant` run downloads the embedding model (~130 MB) and embeds
+~15k chunks (minutes on Apple Silicon / a recent CPU). Requires the `vector`
+extra (installed by `uv sync --all-packages --all-extras`).
 
 ## Docker (retrieval only)
 

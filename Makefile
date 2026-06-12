@@ -1,4 +1,4 @@
-.PHONY: install test browsers retrieve-discover retrieve-download docker-build docker-discover
+.PHONY: install test browsers retrieve-discover retrieve-download docker-build docker-discover stores-up neo4j-constraints load-qdrant
 
 COMMISSION ?= madlanga
 ZONDO_SOURCE ?= bootstrap
@@ -17,6 +17,15 @@ retrieve-discover:
 
 retrieve-download:
 	uv run retrieve-sources --commission $(COMMISSION) --zondo-source $(ZONDO_SOURCE) --download
+
+stores-up:
+	docker compose up -d qdrant neo4j
+
+neo4j-constraints:
+	docker compose exec -T neo4j cypher-shell -u neo4j -p "$${NEO4J_PASSWORD:-changeme}" < infra/neo4j/constraints.cypher
+
+load-qdrant:
+	uv run load-qdrant --commission $(COMMISSION)
 
 docker-build:
 	docker compose build ingestion

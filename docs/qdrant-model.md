@@ -24,8 +24,10 @@ collections, but canonical docs and the MVP implementation assume the shared col
 | Distance | `Cosine` |
 | Normalisation | `normalize_embeddings=True` at encode time |
 
-Point `id` = the chunk's `chunk_id` (sha256 of chunk text), so re-ingesting a chunk
-upserts rather than duplicates.
+Point `id` = `uuid5(NAMESPACE_URL, chunk_id)` — Qdrant point ids must be UUIDs or
+unsigned ints, so the sha256 `chunk_id` itself cannot be the point id. The derivation is
+deterministic, so re-ingesting a chunk upserts rather than duplicates, and `chunk_id`
+stays in the payload as the join key to Neo4j.
 
 ## Payload schema
 

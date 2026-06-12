@@ -42,12 +42,12 @@ see [DISCLAIMER.md](DISCLAIMER.md).
 | Source registry (JSONL, idempotent upsert) | ✅ Implemented |
 | Parse PDF → speaker-aware chunks | ✅ Implemented (Madlanga: 15,022 chunks) |
 | Descriptive corpus statistics (Post #1) | ✅ Implemented |
-| Embeddings → Qdrant | ⬜ Planned |
-| Graph load → Neo4j | ⬜ Planned |
+| Embeddings → Qdrant (semantic search CLI) | ✅ Implemented (15,022 points, bge-small-en-v1.5) |
+| Graph load → Neo4j | ⬜ Planned (constraints + docker service ready) |
 | LLM-assisted claim/event extraction (Claude SDK) | ⬜ Planned |
 | API + web (search → chunk → graph) | ⬜ Planned |
 
-`51` passing tests across ingestion, parsing, and statistics. See [docs/project-state.md](docs/project-state.md)
+`57` passing tests across ingestion, parsing, statistics, and the vector store. See [docs/project-state.md](docs/project-state.md)
 for a verified, detailed snapshot.
 
 ---
@@ -114,7 +114,8 @@ Madlanga-first; each milestone ends with a public, demonstrable artifact.
 - [x] **M0 — Public-repo readiness:** Apache-2.0, secrets audit, this README, CI green.
 - [x] **M1 — Parse + speaker-aware chunking + descriptive statistics** ✅ (108 transcripts
       → 15,022 chunks; stats: 18,485 pages, 82,739 turns, ~3.7M words; Post #1 charts).
-- [ ] **M2 — Embeddings + Qdrant** + local infra (docker-compose).
+- [x] **M2 — Embeddings + Qdrant** + local infra (docker-compose) ✅ (all 15,022 chunks
+      embedded and searchable: `search-corpus "query" [--day N] [--speaker LABEL]`).
 - [ ] **M3 — Mentions-only graph in Neo4j** + a co-occurrence network render.
 - [ ] **M4 — Claims layer (Claude SDK)** behind a human-review gate.
 - [ ] **M5 — Thin public surface** (FastAPI + a read-only web page) for the end-to-end flow.
