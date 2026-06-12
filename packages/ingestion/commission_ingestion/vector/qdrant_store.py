@@ -159,6 +159,15 @@ class QdrantStore:
         )
         return response.points
 
+    def delete_by_sha(self, sha256: str) -> None:
+        """Remove every point of one document — used when its registry record
+        is marked superseded_by (duplicate publication of the same sitting)."""
+        self.client.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=qm.FilterSelector(filter=build_filter(sha256=sha256)),
+            wait=True,
+        )
+
     def existing_chunk_ids(self, sha256: str) -> set[str]:
         """chunk_ids already stored for a document — used for idempotent loads."""
         found: set[str] = set()

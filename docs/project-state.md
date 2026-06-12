@@ -1,13 +1,16 @@
 # Project State — Commission Transcript Intelligence Platform
 
-_Snapshot for planning. Last updated: 2026-06-11. Repo public at
-`github.com/ChristoGH/za-corruption` (CI green on `main`). **M0 and M1 complete**: all 108
-Madlanga transcripts parse → 15,022 speaker-aware chunks (idempotent, full page
-provenance), and corpus statistics are generated — **108 transcript docs / 106 hearing
-days, 18,485 pages, 82,739 turns, ~3.7M words, 103 speaker labels** (51 tests).
-Role/word-share attribution is heuristic and
+_Snapshot for planning. Last updated: 2026-06-12. Repo public at
+`github.com/ChristoGH/za-corruption` (CI green on `main`). **M0, M1, and M2 complete**,
+plus a blocking corpus-integrity pass that found and excluded **two duplicate
+publications** of the same sittings (the day-80 "_Full" partial and a "DAY 15"-headed
+republication of day 16 — human-reviewed `superseded_by` registry records, files
+retained). Active corpus: **106 transcript docs / 106 hearing days, 18,192 pages,
+81,712 turns, ~3.65M words, 103 speaker labels → 14,783 chunks** in Qdrant at exact
+parity (70 tests). Role/word-share attribution is heuristic and
 flagged PROVISIONAL (verify per-day witness, override via `--role-map`, before publishing).
-Parsing details: `docs/parse-notes.md`. Next: M2 (embeddings + Qdrant)._
+Parsing details: `docs/parse-notes.md`. Post assets: `make post-assets` → `assets/post1/`.
+Next: M3 (mentions-only Neo4j graph)._
 
 This document is a **factual snapshot** of what exists and works today, what is
 blocked, and what is not yet built — enough to ground a comprehensive plan forward.
@@ -52,7 +55,7 @@ official site → discover → download (+SHA256) → parse PDF → speaker-awar
 | Download (+SHA256, validate) | ✅ Implemented & verified | `download/downloader.py` |
 | Source registry (JSONL, upsert) | ✅ Implemented & verified | `download/registry.py` |
 | Parse PDF (text + pages) | ✅ Implemented (Madlanga) | `parsing/pdf.py`, `clean.py` |
-| Speaker-aware chunking | ✅ Implemented (15,022 chunks) | `parsing/turns.py`, `chunking.py`, `cli/parse_corpus.py` |
+| Speaker-aware chunking | ✅ Implemented (14,783 active chunks; 15,022 on disk incl. 2 superseded docs) | `parsing/turns.py`, `chunking.py`, `cli/parse_corpus.py` |
 | Deterministic extraction (provenance backbone) | ✅ Implemented | `models/chunk_record.py` |
 | Descriptive corpus statistics (Post #1) | ✅ Implemented | `analysis/stats.py`, `charts.py`, `cli/corpus_stats.py` |
 | NLP extraction (spaCy entities/roles) | ❌ Not started | — |

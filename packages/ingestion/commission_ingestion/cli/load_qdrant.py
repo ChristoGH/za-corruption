@@ -5,6 +5,10 @@ whose chunks are already all present is skipped without re-embedding. Reads the
 chunk JSONL written by parse-corpus plus the source registry, which supplies
 the payload fields chunks don't carry (source_type, document_type,
 authoritative, filename).
+
+Registry records marked ``superseded_by`` (duplicate publications of the same
+sitting) are never loaded, and any points they previously contributed are
+purged — so a cold reload cannot resurrect them.
 """
 
 from __future__ import annotations
@@ -72,7 +76,14 @@ def load_corpus(
     fast no-op that never touches the model.
     """
     store.ensure_collection()
-    stats = {"docs_loaded": 0, "docs_skipped": 0, "docs_no_source": 0, "chunks_upserted": 0}
+    stats = {
+        "docs_loaded": 0,
+        "docs_skipped": 0,
+        "docs_no_source": 0,
+        "docs_superseded": 0,
+        "points_purged": 0,
+        "chunks_upserted": 0,
+    }
 
     for chunks in documents:
         sha256 = chunks[0].doc_sha256
@@ -80,6 +91,18 @@ def load_corpus(
         if source is None:
             logger.warning("No registry record for doc %s — skipping", sha256[:16])
             stats["docs_no_source"] += 1
+            continue
+
+        if source.superseded_by:
+            existing = store.count(sha256=sha256)
+            if existing:
+                store.delete_by_sha(sha256)
+                stats["points_purged"] += existing
+                logger.info(
+                    "purged %d points of superseded doc %s (superseded_by %s)",
+                    existing, sha256[:16], source.superseded_by[:16],
+                )
+            stats["docs_superseded"] += 1
             continue
 
         if not force and store.count(sha256=sha256) == len(chunks):
@@ -137,7 +160,12 @@ def run_cli(argv: list[str] | None = None) -> int:
     documents = read_chunk_files(args.processed_dir, args.commission)
     if args.limit is not None:
         documents = documents[: args.limit]
-    total_chunks = sum(len(chunks) for chunks in documents)
+    superseded_shas = {sha for sha, rec in sources.items() if rec.superseded_by}
+    active_chunks = sum(
+        len(chunks)
+        for chunks in documents
+        if chunks[0].doc_sha256 not in superseded_shas
+    )
 
     store = QdrantStore(url=args.qdrant_url)
 
@@ -163,12 +191,15 @@ def run_cli(argv: list[str] | None = None) -> int:
     print(f"  Documents:         {len(documents)}")
     print(f"    loaded:          {stats['docs_loaded']}")
     print(f"    skipped (done):  {stats['docs_skipped']}")
+    print(f"    superseded:      {stats['docs_superseded']} "
+          f"({stats['points_purged']} stale points purged)")
     print(f"    no source:       {stats['docs_no_source']}")
     print(f"  Chunks upserted:   {stats['chunks_upserted']}")
-    print(f"  Chunks on disk:    {total_chunks}")
+    print(f"  Active chunks:     {active_chunks} (superseded docs excluded)")
     print(f"  Points in Qdrant:  {collection_count} (commission filter)")
 
-    if stats["docs_no_source"] > 0 or collection_count < total_chunks:
+    if stats["docs_no_source"] > 0 or collection_count != active_chunks:
+        print("  PARITY FAILED — point count must equal the active chunk total.")
         return 1
     return 0
 

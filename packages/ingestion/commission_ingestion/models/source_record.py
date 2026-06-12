@@ -82,6 +82,13 @@ class SourceRecord(BaseModel):
     local_path: str | None = None
     sha256: str | None = None
 
+    # sha256 of the surviving document when this record is a duplicate/partial
+    # publication of the same sitting. Set only by a human after reviewing the
+    # integrity report — never automatically. Superseded files stay on disk;
+    # this record *is* the provenance of the exclusion. Excluded from stats,
+    # charts, and store loads.
+    superseded_by: str | None = None
+
     notes: str | None = None
 
     @field_validator("url")

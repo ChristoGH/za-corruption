@@ -86,6 +86,7 @@ class SourceRecord:
     downloaded: bool = False
     local_path: str | None = None
     sha256: str | None = None
+    superseded_by: str | None = None  # sha256 of the surviving document (human-set only)
     notes: str | None = None
 ```
 
@@ -96,6 +97,16 @@ registry dedup is by `url`; `sha256` groups duplicate underlying documents for
 logging/review only — multiple official URLs are provenance and must not be merged away.
 Per-commission `<slug>_sources.jsonl` files in older layout docs are superseded by this
 combined registry.
+
+**Superseded records.** When the same sitting is published twice (observed on the live
+corpus: a partial day-80 PDF misnamed `_Full`, and day 16's transcript republished under
+a wrong "DAY 15" header), the blocking integrity pass in `corpus-stats` detects it via
+content containment and hard-errors. Resolution is a *human* registry edit only: set
+`superseded_by` to the surviving document's sha256 plus an explanatory `notes`. The
+superseded file stays on disk (the record is the provenance of the exclusion); it is
+excluded from stats, charts, and store loads, and `load-qdrant` purges any points it
+previously contributed. `day_no`/`date` always come from the registry, never from page
+headers/footers — in-PDF footers have been observed to be wrong.
 
 ## 5. Shared pipeline stages
 

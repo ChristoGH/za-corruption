@@ -141,6 +141,18 @@ defamation exposure — everything published is structure, not characterization.
 > torch-free; 6 new tests run against in-memory Qdrant (suite: 57). Post #2 recording
 > can be cut from `search-corpus` output as-is.
 
+> **Correction (2026-06-12): the 15,022 / 18,485 figures above are superseded.** A new
+> blocking integrity pass (`analysis/integrity.py`, run by `corpus-stats`) found two
+> duplicate publications via content containment: the day-80 `..._Day_80_Full.pdf`
+> (114pp, 100% contained in the 147pp full record — despite the name, the *partial*
+> copy) and a "DAY 15"-headed republication of day 16's 21-Oct sitting (97.7%/97.9%
+> containment). Both marked `superseded_by` in the registry after human review; their
+> 239 points purged from Qdrant. **Active corpus: 106 docs / 106 days, 18,192 pages,
+> 81,712 turns, ~3.65M words, 14,783 chunks = 14,783 points (exact parity re-verified).**
+> Post #1 assets regenerate deterministically via `make post-assets` → `assets/post1/`
+> (suite: 70). Lesson encoded in tests: `day_no`/`date` come from the registry only —
+> the real day-80 record carries an erroneous "DAY 90" running footer.
+
 **Build**
 
 | Task | Where |

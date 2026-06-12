@@ -149,6 +149,30 @@ def test_load_corpus_skips_fully_loaded_documents(store: QdrantStore):
     assert store.count() == 3
 
 
+def test_load_corpus_purges_superseded_docs_and_never_reloads_them(store: QdrantStore):
+    source = make_source()
+    chunks = [make_chunk(i, f"Testimony chunk number {i}.") for i in range(3)]
+
+    # Loaded while still believed good.
+    load_corpus(store, FakeEmbedder(), [chunks], {source.sha256: source})
+    assert store.count() == 3
+
+    # A human then marks the record superseded — the next run purges its points
+    # without needing an embedder at all.
+    superseded = source.model_copy(update={"superseded_by": "feed" * 16})
+    stats = load_corpus(store, None, [chunks], {source.sha256: superseded})
+    assert stats["docs_superseded"] == 1
+    assert stats["points_purged"] == 3
+    assert store.count() == 0
+
+    # Cold reload cannot resurrect it.
+    stats = load_corpus(store, None, [chunks], {source.sha256: superseded})
+    assert stats["docs_superseded"] == 1
+    assert stats["points_purged"] == 0
+    assert stats["chunks_upserted"] == 0
+    assert store.count() == 0
+
+
 def test_load_corpus_flags_missing_registry_record(store: QdrantStore):
     chunks = [make_chunk(0, "Orphan doc.", sha256="feed" * 16)]
     stats = load_corpus(store, FakeEmbedder(), [chunks], sources={})
