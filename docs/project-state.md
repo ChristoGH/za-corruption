@@ -1,16 +1,21 @@
 # Project State — Commission Transcript Intelligence Platform
 
-_Snapshot for planning. Last updated: 2026-06-12. Repo public at
-`github.com/ChristoGH/za-corruption` (CI green on `main`). **M0, M1, and M2 complete**,
+_Snapshot for planning. Last updated: 2026-06-13. Repo public at
+`github.com/ChristoGH/za-corruption` (CI green on `main`). **M0, M1, M2, and M3 complete**,
 plus a blocking corpus-integrity pass that found and excluded **two duplicate
 publications** of the same sittings (the day-80 "_Full" partial and a "DAY 15"-headed
 republication of day 16 — human-reviewed `superseded_by` registry records, files
 retained). Active corpus: **106 transcript docs / 106 hearing days, 18,192 pages,
 81,712 turns, ~3.65M words, 103 speaker labels → 14,783 chunks** in Qdrant at exact
-parity (70 tests). Role/word-share attribution is heuristic and
+parity (101 tests). Role/word-share attribution is heuristic and
 flagged PROVISIONAL (verify per-day witness, override via `--role-map`, before publishing).
 Parsing details: `docs/parse-notes.md`. Post assets: `make post-assets` → `assets/post1/`.
-Next: M3 (mentions-only Neo4j graph)._
+Extraction infrastructure built; Gate 2 cross-model eval complete (40-chunk stratified
+sample, seed 17) — model selection and budget approval awaiting human decision before
+full-corpus extraction run. M3 graph layer: `build-graph` CLI and full Neo4j spine +
+SPOKE_IN + MENTIONED_IN pipeline implemented and tested (25 graph tests); live load
+requires `docker compose up` and `make neo4j-constraints` first. Canned queries:
+`docs/queries.md`. Next: M4 (LLM claims layer — gated on §7.4 model decision)._
 
 This document is a **factual snapshot** of what exists and works today, what is
 blocked, and what is not yet built — enough to ground a comprehensive plan forward.
@@ -58,10 +63,11 @@ official site → discover → download (+SHA256) → parse PDF → speaker-awar
 | Speaker-aware chunking | ✅ Implemented (14,783 active chunks; 15,022 on disk incl. 2 superseded docs) | `parsing/turns.py`, `chunking.py`, `cli/parse_corpus.py` |
 | Deterministic extraction (provenance backbone) | ✅ Implemented | `models/chunk_record.py` |
 | Descriptive corpus statistics (Post #1) | ✅ Implemented | `analysis/stats.py`, `charts.py`, `cli/corpus_stats.py` |
-| NLP extraction (spaCy entities/roles) | ❌ Not started | — |
-| LLM-assisted extraction (Claude SDK, claims/events) | ❌ Not started | — |
-| Embeddings → Qdrant | ❌ Not started | spec: `docs/qdrant-model.md` |
-| Graph load → Neo4j | ❌ Not started | spec: `docs/neo4j-model.md`, `infra/neo4j/` (constraints not yet present) |
+| Embeddings → Qdrant | ✅ Implemented & verified (M2 complete) | `vector/embedder.py`, `vector/qdrant_store.py`, `cli/load_qdrant.py`, `cli/search.py` |
+| LLM extraction infrastructure | ✅ Infrastructure implemented; Gate 2 eval complete; **awaiting model-selection & budget approval** | `extraction/`, `eval/`, `resolution/`, `cli/extract_corpus.py`, `cli/cross_model_eval.py` |
+| spaCy NER detection | ✅ Implemented (M3); lazy-load behind `spacy` extra; `MentionDetector` protocol for test injection | `graph/mentions.py` |
+| Graph load → Neo4j — spine + mentions | ✅ Implemented & tested (M3); idempotent MERGE; two provenance paths; SPOKE_IN + MENTIONED_IN | `graph/neo4j_store.py`, `cli/build_graph.py`; canned queries: `docs/queries.md` |
+| NLP extraction (spaCy entities/roles into Neo4j) | ✅ Implemented (M3) — spaCy detects Person/Org/Place, resolved via canonical store | `graph/mentions.py`, `graph/neo4j_store.py` |
 | FastAPI query layer (`apps/api`) | ❌ Not started (dir not scaffolded) | — |
 | React/Vite frontend (`apps/web`) | ❌ Not started (dir not scaffolded) | — |
 | Human review workflow | ❌ Not started | — |
@@ -83,7 +89,8 @@ mentions clearly distinguished from claims/findings.
 
 A uv workspace (`requires-python >=3.12`) with a single member package
 `packages/ingestion` (`commission_ingestion`). Runtime deps are deliberately minimal:
-`requests`, `beautifulsoup4`, `pydantic` (+ optional `playwright` extra).
+`requests`, `beautifulsoup4`, `pydantic` (+ optional extras: `playwright`, `stats`,
+`vector`, `extract`).
 
 ### Modules
 - `models/source_record.py` — `SourceRecord` (pydantic, `schema_version 1.1`). Fields:
@@ -103,11 +110,85 @@ A uv workspace (`requires-python >=3.12`) with a single member package
   duplicate-SHA256 grouping.
 - `cli/retrieve_sources.py` — `--commission {zondo,madlanga,both}`,
   `--discover-only`/`--download`, exit 1 only on real failures (missing ≠ failed).
+- `parsing/pdf.py`, `parsing/clean.py` — PyMuPDF text + page extraction; line-number
+  token removal, furniture stripping, speaker-label normalisation.
+- `parsing/turns.py`, `parsing/chunking.py` — speaker-aware turn segmentation;
+  chunk packing (small turns merged, oversized turns split on sentence boundaries).
+- `cli/parse_corpus.py` — per-document parse → chunk JSONL files under
+  `data/processed/`; re-runnable, skips already-parsed.
+- `analysis/stats.py`, `analysis/charts.py`, `analysis/integrity.py` — corpus
+  statistics, Post #1 chart generation, duplicate-publication detection.
+- `cli/corpus_stats.py` — `corpus-stats` CLI; outputs `data/processed/stats/`.
+- `vector/embedder.py` — `BAAI/bge-small-en-v1.5` (384-dim, cosine) via
+  sentence-transformers; batched with progress bar.
+- `vector/qdrant_store.py` — `QdrantStore` wrapping `qdrant-client`; stable
+  `uuid5(chunk_id)` point IDs, full payload schema per `docs/qdrant-model.md`,
+  superseded-doc purge, idempotent upsert, day/speaker filter search.
+- `cli/load_qdrant.py` — `load-qdrant` CLI; loads `commission_transcripts` collection,
+  skips fully-loaded docs.
+- `cli/search.py` — `search-corpus` CLI; semantic search with optional day/speaker
+  filters.
+- `extraction/schema.py` — `ChunkExtraction` schema: `entities` (person/org/role/
+  place/acronym, surface form verbatim), `mentions` (verbatim quote spans),
+  `claims` (reported-speech only: speaker, subject_refs, predicate, object_refs,
+  quote, certainty). `PROMPT_VERSION = "extract_v1"`. `find_quote()` for deterministic
+  character-offset recovery (exact match → whitespace-tolerant fallback; returns None
+  rather than guessing).
+- `extraction/extractor.py` — `LLMClient` protocol + `AnthropicLLMClient` (SDK
+  imported lazily behind `extract` extra); `extract_chunk()`: caching, strict Pydantic
+  parse, one repair retry, dead-letter on refusal or second parse failure. Cost
+  accounting for Opus/Sonnet/Haiku with cache read/write factors.
+- `extraction/cache.py` — content-addressed JSON cache keyed on
+  `(chunk_id, prompt_version, model)`; `spend.jsonl` cost log; dead-letter store.
+  **Populated:** 672 Opus + 40 Haiku + 1 Sonnet chunk extractions cached (~US$15.40
+  total spend logged across eval and sampling runs).
+- `extraction/prompts/extract_v1.md` — system prompt: neutral reported-speech framing
+  (predicates always "stated/testified/alleged that …"), strictly verbatim quotes, no
+  `status` field (graph writer always writes `status="alleged"`).
+- `eval/sample.py` — stratified sampler: 5 strata × 8 chunks = 40 (ambiguous_surname,
+  ocr_variant, high_acronym, allegation_dense, control); seed-frozen at 17.
+- `eval/compare.py` — resolution-aware entity/claim diff: entity F1 measured after
+  canonical resolution (TP/FP/FN on canonical IDs, not raw strings); claim soft-match
+  on subject canonical-ID overlap + predicate similarity (threshold 0.45); fragmentation
+  counted separately.
+- `eval/framing_judge.py` — Opus judge classifying each extracted claim as
+  `neutral_reported` / `asserted_as_fact` / `ambiguous` (the defamation-safety axis).
+- `eval/report.py` — writes `eval/artifacts/metrics.json`,
+  `eval/artifacts/gate2_model_review.md`, `eval/artifacts/hardcase_appendix.md`.
+- `resolution/canonical.py` — `CanonicalStore`: alias index + title-stripped bare index,
+  both scoped by entity-type group so the same surface can resolve differently by type
+  (e.g. "CHAIRPERSON" → the person or the procedural role). Surname-only aliases
+  forbidden (four distinct Khumalos in this corpus alone).
+- `resolution/seed_entities.yaml` — 268-line human-owned canonical entity seed for the
+  Madlanga corpus (bench, counsel, witnesses, organisations, places); resolver matches
+  against this, never adds to it.
+- `graph/mentions.py` — `DetectedMention` + `MentionDetector` protocol +
+  `SpacyDetector` (lazy `en_core_web_trf` import behind `spacy` extra; maps spaCy
+  PERSON/ORG/GPE/LOC/FAC labels → person/org/place; deduplicates by surface+type).
+- `graph/neo4j_store.py` — `Neo4jStore`: driver wrapper (accepts injected driver for
+  tests); `write_spine()` (paged vs bootstrap path, UNWIND batched, MERGE only);
+  `write_speaker_edges()` (SPOKE_IN); `write_mention_edges()` (MENTIONED_IN per type,
+  per-chunk dedup on canonical entity ID); `count_chunks()` for idempotency. Banned
+  relationships enforced by construction: no `APPEARS_IN`, no direct paged
+  `Document-[:HAS_CHUNK]->Chunk`, no `:Claim` writes.
+- `graph/__init__.py` — module marker (no longer a stub).
+- `cli/build_graph.py` — `build-graph` CLI: `--commission {zondo,madlanga,both}`,
+  `--all`, `--dry-run` (counts only, no writes/NER), `--no-ner` (spine + SPOKE_IN
+  only), `--force`, `--limit N`. Loads canonical store from `seed_entities.yaml`.
+- `cli/extract_corpus.py` — `extract-corpus` CLI: `--estimate-only` (zero API calls),
+  `--budget-usd` hard cap with clean checkpoint, `--days`/`--all`, `--batch` flag.
+- `cli/cross_model_eval.py` — `cross-model-eval` CLI: runs Gate 2 evaluation against
+  the frozen stratified sample; cache-aware (re-runs cost $0 if arms already cached).
 
 ### Tests
-**33 passing** (`uv run pytest packages/ingestion/tests/`): madlanga discovery +
+**101 passing** (`uv run pytest packages/ingestion/tests/`): madlanga discovery +
 classification, zondo + zondo-bootstrap discovery, downloader (incl. 404→missing),
-registry upsert, source-record model.
+registry upsert, source-record model, PDF parsing + chunking, corpus statistics,
+corpus integrity (duplicate detection, reconciliation), Qdrant store (idempotency,
+payload, superseded-doc purge, search filters), charts, cross-model eval (sampler,
+compare metrics, framing flags, resolution), **graph layer** (hearing_key/page_key,
+paged and bootstrap spine paths, SPOKE_IN, MENTIONED_IN, banned-relationship
+enforcement, idempotency-via-MERGE, zero `:Claim` nodes).
 
 ---
 
@@ -174,11 +255,17 @@ the collection, and the embedding model below were re-verified against `docs/ont
    classifications and the schema stays stable across commissions.
 5. **Claims carry status/attribution/confidence**, `SUPPORTED_BY` a `:Chunk`, `STATED_BY`
    a `:Person`. **No fact edges** like `(:Person)-[:CORRUPTLY_INFLUENCED]->(:Contract)`.
+   The extraction schema enforces this structurally: there is no `status` field — the
+   graph writer always writes `status="alleged"`.
 6. **Progressive extraction in separate phases:** deterministic → spaCy → LLM (official
    **Anthropic Claude SDK** for structured JSON, behind a pluggable extractor interface)
    → human review. An LLM pass must never silently promote a claim to a fact.
 7. **Build Zondo-first, reuse for Madlanga** (Madlanga is now further along on data, but
    the shared-core/adapter shape is the agreed architecture).
+8. **Canonical entity resolution is human-owned.** The resolver (`resolution/canonical.py`)
+   only matches against `seed_entities.yaml` — it never merges autonomously. Surname-only
+   aliases are forbidden (multiple Khumalos). A proposed merge must be human-approved by
+   adding the alias to the YAML and re-running.
 
 Intended stack (confirm versions before pinning): Python ≥3.12, PyMuPDF, spaCy
 `en_core_web_trf`, sentence-transformers `BAAI/bge-small-en-v1.5` (384-dim, cosine),
@@ -214,25 +301,42 @@ the canonical store docs, so confirm before pinning).
    process) is a prerequisite for the `apps/api`/`apps/web` stages — not a footnote.
    Resolve before building any outward-facing surface.
 
-4. **LLM extraction cost & scale envelope (high).** No order-of-magnitude exists yet.
-   Inputs to size: ~774 MB Madlanga PDFs (+ full Zondo PDFs if unblocked) → an estimated
-   tens of thousands of chunks to embed (cheap, local `bge-small`) and to run through the
-   **Claude SDK structured-extraction pass** (the real cost driver). The plan needs a
-   rough per-corpus token/$ estimate, a prompt-caching strategy, and a batching/cost cap
-   before committing to a full-corpus extraction run.
+4. **LLM extraction model & budget — Gate 2 complete, human decision required (high).**
+   Cross-model eval run on 40-chunk stratified sample (seed 17, strata: ambiguous_surname,
+   ocr_variant, high_acronym, allegation_dense, control). Results locked in
+   `eval/artifacts/gate2_model_review.md` and `metrics.json`:
+
+   | model | entity F1 (hard) | asserted-as-fact rate | $/chunk | full corpus (batch) |
+   |-------|------------------|-----------------------|---------|---------------------|
+   | claude-haiku-4-5 | 0.660 | **4.3%** | $0.0055 | **$40** |
+   | claude-sonnet-4-6 | 0.696 | 10.8% | $0.0140 | $104 |
+   | claude-opus-4-8 (reference) | — | 12.7% | $0.0381 | $282 |
+
+   **Asserted-as-fact rate is the defamation-critical axis** — one framing slip outweighs
+   a dozen entity misses. Haiku has the lowest rate and lowest cost; Sonnet has slightly
+   better entity recall. See `eval/artifacts/hardcase_appendix.md` before deciding.
+   **Action required:** approve a model and budget cap to unlock `extract-corpus --all`.
 
 ### Build-readiness gaps (known work, no decision needed)
 
-5. **No parsing/chunking yet.** The next build and the gate to everything downstream.
-   Needs PyMuPDF text+page extraction, speaker-label detection, chunk IDs, per-page
-   provenance — **two paths** (paged PDFs vs page-less bootstrap text, per §6.2).
-6. **`apps/api` and `apps/web` not scaffolded.** CLAUDE.md mandates the full monorepo;
+5. **`apps/api` and `apps/web` not scaffolded.** CLAUDE.md mandates the full monorepo;
    only `packages/ingestion` exists.
-7. **`infra` is skeletal.** `infra/neo4j/constraints.cypher` is specified (run before
-   ingestion) but absent; only `infra/docker/ingestion/Dockerfile` exists. No
-   `docker-compose` services for Qdrant/Neo4j yet.
+
+6. **`infra` is skeletal for Docker.** `infra/neo4j/constraints.cypher` exists (29 lines);
+   `docker-compose.yml` defines Qdrant + Neo4j 5.26 services. `make stores-up` brings
+   both up; `make neo4j-constraints` applies constraints. `infra/docker/ingestion/`
+   exists but no compose file for running the full ingestion pipeline in containers.
+
+7. **Live Neo4j load not yet smoke-tested end-to-end.** `build-graph` is implemented
+   and unit-tested with a `FakeDriver`. A full live run against a running Neo4j instance
+   (e.g. `make stores-up && make neo4j-constraints && build-graph --limit 5`) should be
+   done before treating M3 as fully accepted.
+
 8. **LLM extraction safety design.** Beyond cost: confidence/method metadata enforcement,
-   deterministic-checks-first, and never silently promoting a claim to a fact.
+   deterministic-checks-first, and never silently promoting a claim to a fact. The
+   extraction schema enforces reported-speech framing and the graph writer enforces
+   `status="alleged"`, but the full safety design (human review gate for high-risk claims,
+   alias-resolution review queue) is not yet implemented.
 
 ### Lower-risk cleanups
 
@@ -253,18 +357,22 @@ After chunking (step 1), the **Qdrant path (2)** and the **Neo4j path (3)** are 
 independent and can proceed in parallel. The web frontend (5) and human-review layer (6)
 are gated by the license/publication decision (§7.3), not by the data pipeline.
 
-| # | Stage | Depends on | Done when (acceptance) |
-|---|-------|-----------|------------------------|
-| 0 | **Decide first corpus + Zondo source** (§7.1–7.2); stand up `docker-compose` (Qdrant+Neo4j) and `infra/neo4j/constraints.cypher` | — | Chosen corpus agreed; both stores reachable locally; constraints applied |
-| 1 | **Parse + speaker-aware chunk** (two paths: paged PDF / page-less bootstrap) | 0 | Every downloaded doc → chunks with `chunk_id`, page provenance (PDFs), speaker label, SHA256 lineage; deterministic, re-runnable |
-| 2 | **Embed + Qdrant load** into `commission_transcripts` | 1 | Semantic search returns relevant chunks with full payload (commission, day, page, chunk_id) |
-| 3 | **Deterministic + spaCy graph load** into Neo4j (spine + Person/Org/Place **mentions only**) | 1 | `Document→Page→Chunk` populated; `MENTIONED_IN` edges; **no claims/facts** |
-| 4 | **LLM-assisted extraction** (Claude SDK) — claims/events/roles/positions | 3 (+cost plan §7.4) | Every write carries `confidence`+`extraction_method`; claims modelled as `:Claim … SUPPORTED_BY/STATED_BY`, never fact edges |
-| 5 | **API (`apps/api`)** over both stores, then **Web (`apps/web`)** | 2,4 (+license §7.3) | MVP success-test flow works end-to-end; mentions visibly distinct from claims/findings |
-| 6 | **Human-review layer** — alias/dup resolution, high-risk claim confirmation | 4 | Reviewers can confirm/merge/flag; decisions persisted with provenance |
+| # | Stage | Depends on | Status | Done when (acceptance) |
+|---|-------|-----------|--------|------------------------|
+| 0 | **Decide first corpus + Zondo source** (§7.1–7.2); stand up `docker-compose` (Qdrant+Neo4j) and `infra/neo4j/constraints.cypher` | — | §7.1 decided; constraints.cypher written; docker-compose not yet verified | Chosen corpus agreed; both stores reachable locally; constraints applied |
+| 1 | **Parse + speaker-aware chunk** (two paths: paged PDF / page-less bootstrap) | 0 | ✅ **M1 complete** | Every downloaded doc → chunks with `chunk_id`, page provenance (PDFs), speaker label, SHA256 lineage; deterministic, re-runnable |
+| 2 | **Embed + Qdrant load** into `commission_transcripts` | 1 | ✅ **M2 complete** | Semantic search returns relevant chunks with full payload (commission, day, page, chunk_id) |
+| 3 | **Deterministic + spaCy graph load** into Neo4j (spine + Person/Org/Place **mentions only**) | 1 | ✅ **M3 implemented & tested** — live smoke-test pending (see §7.7) | `Document→Page→Chunk` populated; `MENTIONED_IN` edges; **no claims/facts** |
+| 4 | **LLM-assisted extraction** (Claude SDK) — claims/events/roles/positions | 3 (+model selection §7.4) | Infrastructure ✅; Gate 2 eval ✅; **awaiting model approval + budget** | Every write carries `confidence`+`extraction_method`; claims modelled as `:Claim … SUPPORTED_BY/STATED_BY`, never fact edges |
+| 5 | **API (`apps/api`)** over both stores, then **Web (`apps/web`)** | 2,4 (+license §7.3) | ❌ Not started (dirs not scaffolded) | MVP success-test flow works end-to-end; mentions visibly distinct from claims/findings |
+| 6 | **Human-review layer** — alias/dup resolution, high-risk claim confirmation | 4 | ❌ Not started | Reviewers can confirm/merge/flag; decisions persisted with provenance |
 
 **Earliest demonstrable slice:** corpus → step 1 → step 2 gives a working semantic search
-over real testimony without touching Neo4j or the LLM — a cheap, high-signal milestone.
+over real testimony without touching Neo4j or the LLM — **already live as of M2**.
+**M3 slice:** `make stores-up && make neo4j-constraints && build-graph --commission madlanga`
+loads spine + SPOKE_IN + MENTIONED_IN; then take any `chunk_id` from a Qdrant hit and
+traverse to its connected Person/Org/Place in Neo4j — the MVP-adjacent check.
+See `docs/queries.md` query #5 for the provenance path Cypher.
 
 ---
 

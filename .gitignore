@@ -80,3 +80,9 @@ test-secret.txt
 
 # Playwright session secrets (manual Zondo harvest)
 playwright-storage-state.json
+
+# Extraction cache — LLM outputs keyed (chunk_id, prompt_version, model).
+# Regenerable but paid: back it up before deleting. Not committed (derived
+# content about named individuals stays out of the repo).
+/data/cache/**
+!/data/cache/

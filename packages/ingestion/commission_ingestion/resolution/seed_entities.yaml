@@ -1,0 +1,268 @@
+# Canonical entity store — Madlanga Commission corpus.
+#
+# Human-editable and human-owned: the resolver NEVER merges entities on its own;
+# it only matches against the ids/aliases here. Approving a proposed merge from
+# the review queue means adding the surface form as an alias here and re-running
+# resolution. Keep aliases as FULL speaker labels / surface forms — surname-only
+# aliases are forbidden because surnames collide (there are four distinct
+# Khumalos in this corpus alone).
+#
+# Sources: official commission records (speaker labels from the parsed corpus,
+# data/processed/stats/madlanga_stats.json) and widely reported public facts
+# about the commission's composition. Anything uncertain is marked in `note`
+# and should be verified before publication.
+
+version: 1
+commission: madlanga
+entities:
+  # ── Bench ──────────────────────────────────────────────────────────────
+  - id: person:mbuyiseli-madlanga
+    name: Justice Mbuyiseli Madlanga
+    type: person
+    aliases: [CHAIRPERSON, THE CHAIRPERSON, JUSTICE MADLANGA]
+    note: Commission chairperson; retired Constitutional Court justice. Speaker label CHAIRPERSON (105 days).
+  - id: person:sesi-baloyi
+    name: Adv Sesi Baloyi SC
+    type: person
+    aliases: [ADV BALOYI SC, ADV BALOYI, ADV BALOYI ISC, ADV BALOYOI ISC]
+    note: Commissioner (present 98 days — bench, not counsel). ISC variants are OCR artifacts of "SC".
+  - id: person:sandile-khumalo
+    name: Adv Sandile Khumalo SC
+    type: person
+    aliases: [ADV KHUMALO SC]
+    note: Commissioner (present 98 days — bench). Do NOT alias bare KHUMALO — collides with three other Khumalos.
+
+  # ── Evidence leaders / counsel ─────────────────────────────────────────
+  - id: person:matthew-chaskalson
+    name: Adv Matthew Chaskalson SC
+    type: person
+    aliases: [ADV CHASKALSON SC, ADV CHASKALSON, ADV CH ASK ALSON SC, ADV CHA SKA LSON SC, ADV C HASKALSON SC]
+    note: Evidence leader. The split variants are PDF text-extraction artifacts.
+  - id: person:mahlape-sello
+    name: Adv Mahlape Sello SC
+    type: person
+    aliases: [ADV SELLO SC]
+    note: Evidence leader (28 days).
+  - id: person:adila-hassim
+    name: Adv Adila Hassim SC
+    type: person
+    aliases: [ADV HASSIM SC]
+    note: Evidence leader (18 days).
+  - id: person:adv-pooe
+    name: Adv Pooe
+    type: person
+    aliases: [ADV POOE]
+    note: Counsel (14 days). First name not confirmed from the record.
+  - id: person:adv-mosikili
+    name: Adv Mosikili
+    type: person
+    aliases: [ADV MOSIKILI]
+    note: Counsel (10 days).
+  - id: person:lee-segeels-ncube
+    name: Adv Lee Segeels-Ncube
+    type: person
+    aliases: [ADV SEGEELS-NCUBE, ADV SEGEELS-NCUBE SC, ADV LEE SEGEELS-NCUBE, MS SEGEELS-NCUBE, ADV SEEELS-NCUBE]
+    note: Counsel; label appears with and without SC and with OCR drops.
+  - id: person:adv-sikhakhane
+    name: Adv Sikhakhane SC
+    type: person
+    aliases: [ADV SIKHAKHANE]
+    note: Counsel (6 days).
+  - id: person:adv-motlhasedi
+    name: Adv Motlhasedi
+    type: person
+    aliases: [ADV MOTLHASEDI, ADV MOHLASEDI]
+    note: Counsel; MOHLASEDI spelling appears on the same sittings — verify before publication.
+  - id: person:adv-behari
+    name: Adv Behari
+    type: person
+    aliases: [ADV BEHARI]
+    note: Counsel who also testified as a witness (day 56).
+  - id: person:adv-premhid
+    name: Adv Premhid
+    type: person
+    aliases: [ADV PREMHID, ADV PREMHID ADDRESSES THE COMMISSIONERS]
+    note: Counsel.
+  - id: person:tembeka-ngcukaitobi
+    name: Adv Tembeka Ngcukaitobi SC
+    type: person
+    aliases: [ADV NGCUKAITOBI SC]
+    note: Counsel (4 days).
+  - id: person:adv-motau
+    name: Adv Motau SC
+    type: person
+    aliases: [ADV MOTAU SC, ADV MR MOTAU SC]
+    note: Counsel.
+  - id: person:adv-baloyi-mere
+    name: Adv Baloyi-Mere SC
+    type: person
+    aliases: [ADV BALOYI-MERE SC]
+    note: Counsel — distinct from Commissioner Baloyi.
+  - id: person:adv-mkhize
+    name: Adv Mkhize SC
+    type: person
+    aliases: [ADV MKHIZE SC, ADV MKIZE SC]
+    note: Counsel; spelling varies.
+  - id: person:adv-van-den-heever
+    name: Adv Van den Heever
+    type: person
+    aliases: [ADV VAN DEN HEEVER, ADV VAN DEN HEERVER, ADV VAN DEN HEEVER SC]
+    note: Counsel; HEERVER is a transcription typo.
+
+  # ── Witnesses (high-volume speakers; positions widely reported) ───────
+  - id: person:nhlanhla-mkhwanazi
+    name: Lt-Gen Nhlanhla Mkhwanazi
+    type: person
+    aliases: [LT-GEN MKHWANAZI, GENERAL MKHWANAZI]
+    note: KwaZulu-Natal provincial police commissioner; the July 2025 allegations that led to the commission.
+  - id: person:shadrack-sibiya
+    name: Lt-Gen Shadrack Sibiya
+    type: person
+    aliases: [LT-GEN SIBIYA]
+    note: SAPS deputy national commissioner for crime detection. ADV SIBIYA SC is different — do not alias.
+  - id: person:fannie-masemola
+    name: Gen Fannie Masemola
+    type: person
+    aliases: [LT-GEN MASEMOLA, GENERAL MASEMOLA, GEN MASEMOLA]
+    note: SAPS national commissioner.
+  - id: person:dumisani-khumalo
+    name: Lt-Gen Dumisani Khumalo
+    type: person
+    aliases: [LT-GEN KHUMALO, LT-GEN DUMISANI KHUMALO, GENERAL KHUMALO]
+    note: Crime Intelligence head. GENERAL KHUMALO alias assumes the same person — verify per sitting.
+  - id: person:senzo-mchunu
+    name: Senzo Mchunu
+    type: person
+    aliases: [MINISTER MCHUNU, MR MCHUNU]
+    note: Minister of Police at the time of the allegations; heavily mentioned, testified.
+  - id: person:brown-mogotsi
+    name: Brown Mogotsi
+    type: person
+    aliases: [MR MOGOTSI]
+    note: North West businessman; central figure in the alleged communications.
+  - id: person:vusimuzi-matlala
+    name: Vusimuzi Matlala
+    type: person
+    aliases: [MR MATLALA, MR M MATLALA]
+    note: Businessman ("Cat" Matlala) named in testimony; MR T MATLALA may be a different person — not aliased.
+  - id: person:lt-gen-shibiri
+    name: Lt-Gen Shibiri
+    type: person
+    aliases: [LT-GEN SHIBIRI, MAJ-GEN SHIBIRI]
+    note: SAPS officer; rank varies across sittings — verify.
+  - id: person:mr-mnisi
+    name: Mr Mnisi
+    type: person
+    aliases: [MR MNISI]
+    note: Witness (day 94 area).
+  - id: person:mr-nciza
+    name: Mr Nciza
+    type: person
+    aliases: [MR NCIZA, MR NCAZI]
+    note: Witness; NCAZI appears to be a typo on one sitting — verify.
+  - id: person:ms-gxasheka
+    name: Ms Gxasheka
+    type: person
+    aliases: [MS GXASHEKA]
+    note: Witness (day 69).
+  - id: person:maj-gen-senona
+    name: Maj-Gen Senona
+    type: person
+    aliases: [MAJ-GEN SENONA, GENERAL SENONA]
+    note: Witness.
+  - id: person:dr-mashazi
+    name: Dr Mashazi
+    type: person
+    aliases: [DR MASHAZI]
+    note: Witness.
+
+  # ── Organisations / acronyms ───────────────────────────────────────────
+  - id: org:saps
+    name: South African Police Service
+    type: org
+    aliases: [SAPS, THE SAPS, POLICE SERVICE]
+    note: ""
+  - id: org:pktt
+    name: Political Killings Task Team
+    type: org
+    aliases: [PKTT, TASK TEAM, POLITICAL KILLINGS TASK TEAM]
+    note: The KZN task team whose disbandment is central to the inquiry.
+  - id: org:ipid
+    name: Independent Police Investigative Directorate
+    type: org
+    aliases: [IPID]
+    note: ""
+  - id: org:npa
+    name: National Prosecuting Authority
+    type: org
+    aliases: [NPA]
+    note: ""
+  - id: org:dpci
+    name: Directorate for Priority Crime Investigation
+    type: org
+    aliases: [DPCI, THE HAWKS, HAWKS]
+    note: ""
+  - id: org:crime-intelligence
+    name: Crime Intelligence
+    type: org
+    aliases: [CRIME INTELLIGENCE, CI]
+    note: SAPS Crime Intelligence division. "CI" is ambiguous — review hits.
+  - id: org:siu
+    name: Special Investigating Unit
+    type: org
+    aliases: [SIU]
+    note: ""
+  - id: org:commission
+    name: Madlanga Commission
+    type: org
+    aliases: [THE COMMISSION, MADLANGA COMMISSION]
+    note: Judicial Commission of Inquiry into Criminality, Political Interference and Corruption in the Criminal Justice System.
+
+  # ── Procedural roles ───────────────────────────────────────────────────
+  - id: role:chairperson
+    name: Chairperson
+    type: role
+    aliases: []
+    note: ""
+  - id: role:commissioner
+    name: Commissioner
+    type: role
+    aliases: [COMMISSIONER]
+    note: ""
+  - id: role:evidence-leader
+    name: Evidence Leader
+    type: role
+    aliases: []
+    note: ""
+  - id: role:witness
+    name: Witness
+    type: role
+    aliases: [WITNESS, WITNESS A]
+    note: WITNESS / WITNESS A labels are protected witnesses — never resolve to a named person.
+  - id: role:interpreter
+    name: Interpreter
+    type: role
+    aliases: [INTERPRETER]
+    note: ""
+
+  # ── Places ─────────────────────────────────────────────────────────────
+  - id: place:kwazulu-natal
+    name: KwaZulu-Natal
+    type: place
+    aliases: [KZN, KWAZULU NATAL]
+    note: ""
+  - id: place:gauteng
+    name: Gauteng
+    type: place
+    aliases: []
+    note: ""
+  - id: place:pretoria
+    name: Pretoria
+    type: place
+    aliases: []
+    note: ""
+  - id: place:durban
+    name: Durban
+    type: place
+    aliases: []
+    note: ""

@@ -1,4 +1,4 @@
-.PHONY: install test browsers retrieve-discover retrieve-download docker-build docker-discover stores-up neo4j-constraints load-qdrant post-assets
+.PHONY: install test browsers retrieve-discover retrieve-download docker-build docker-discover stores-up neo4j-constraints load-qdrant build-graph post-assets
 
 COMMISSION ?= madlanga
 ZONDO_SOURCE ?= bootstrap
@@ -26,6 +26,12 @@ neo4j-constraints:
 
 load-qdrant:
 	uv run load-qdrant --commission $(COMMISSION)
+
+build-graph:
+	uv run build-graph --commission $(COMMISSION)
+
+build-graph-dry:
+	uv run build-graph --commission $(COMMISSION) --dry-run
 
 post-assets:
 	uv run corpus-stats --commission $(COMMISSION) --charts --out assets/post1/

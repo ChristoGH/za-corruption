@@ -13,13 +13,20 @@ dependencies = [
     "pydantic>=2.0",
     "pymupdf>=1.24",
     "qdrant-client>=1.12",
+    # Lightweight pure-python deps for the graph + resolution layers (M3).
+    "neo4j>=5.20",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
 playwright = ["playwright==1.49.0"]
-stats = ["matplotlib>=3.8", "pyyaml>=6.0"]
+stats = ["matplotlib>=3.8"]
 # Heavy (torch) — only needed to embed/search, not for parsing or CI tests.
 vector = ["sentence-transformers>=3.0"]
+# Anthropic SDK — only needed for paid extraction runs; CI never calls the API.
+extract = ["anthropic>=0.69"]
+# spaCy + transformer model — only needed for NER during graph build; CI uses fakes.
+spacy = ["spacy>=3.7"]
 dev = ["pytest>=7.4"]
 
 [project.scripts]
@@ -28,6 +35,9 @@ parse-corpus = "commission_ingestion.cli.parse_corpus:run_cli"
 corpus-stats = "commission_ingestion.cli.corpus_stats:run_cli"
 load-qdrant = "commission_ingestion.cli.load_qdrant:run_cli"
 search-corpus = "commission_ingestion.cli.search:run_cli"
+extract-corpus = "commission_ingestion.cli.extract_corpus:run_cli"
+build-graph = "commission_ingestion.cli.build_graph:run_cli"
+cross-model-eval = "commission_ingestion.cli.cross_model_eval:run_cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["commission_ingestion"]
