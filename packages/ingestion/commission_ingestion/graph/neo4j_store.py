@@ -10,19 +10,39 @@ Two provenance paths (settled, docs/project-state.md §6.2):
 The direct (:Document)-[:HAS_CHUNK] shortcut is BANNED on paged docs and
 is only used for the bootstrap (page-less) path. APPEARS_IN is banned
 everywhere — use MENTIONED_IN (entities) or SPOKE_IN (speakers).
+
+Claim layer (M4 — see docs/decisions/0005-claim-writer-schema.md):
+  - Decision 1 (MERGE key): claim_id is a deterministic sha256 over
+    (chunk_id, speaker_entity_id, normalized_predicate, quote_span_offsets) —
+    never a random UUID, so re-runs are idempotent. status="alleged" is a
+    Cypher literal written ON CREATE only (never from model output, never
+    clobbering a later human-review status).
+  - Decision 2 (raw-subject fallthrough): resolved subjects/objects get
+    (:Claim)-[:MENTIONS {role}]->(:Person|:Organisation|:Place); unresolved
+    surfaces are recorded ON the claim (unresolved_subjects/_objects +
+    has_unresolved_subject), never as a separate node and never silently
+    dropped — countable and surfaceable for human review.
+  Banned by construction here too: no fact-edges, no claim wired to a subject
+  bypassing the :Claim node (MENTIONS originates at the claim).
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass
 from typing import Any
 
+from commission_ingestion.extraction.schema import ChunkExtraction, find_quote
 from commission_ingestion.graph.mentions import DetectedMention
 from commission_ingestion.models.chunk_record import ChunkRecord
 from commission_ingestion.models.source_record import SourceRecord
-from commission_ingestion.resolution.canonical import CanonicalStore
+from commission_ingestion.resolution.canonical import (
+    _TYPE_GROUP,
+    CanonicalStore,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +65,24 @@ def hearing_key(slug: str, day_no: int | None, date: str | None) -> str:
 def page_key(doc_sha256: str, page_no: int) -> str:
     """Stable unique key for a :Page node."""
     return f"{doc_sha256}:{page_no}"
+
+
+_PRED_WS_RE = re.compile(r"\s+")
+
+
+def claim_key(
+    chunk_id: str, speaker_entity_id: str, predicate: str, start: int, end: int
+) -> str:
+    """Deterministic :Claim MERGE key (docs/decisions/0005).
+
+    Content-addressed over (chunk_id, resolved speaker id, normalized predicate,
+    quote span offsets) so re-running the load is idempotent. Predicate is
+    lowercased + whitespace-collapsed; the quote *span* (not text) disambiguates
+    two distinct claims by the same speaker with identical predicate text.
+    """
+    norm_pred = _PRED_WS_RE.sub(" ", predicate.strip().lower())
+    raw = f"{chunk_id}|{speaker_entity_id}|{norm_pred}|{start}:{end}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 # ─── Cypher constants ─────────────────────────────────────────────────────────
@@ -151,6 +189,64 @@ _MENTIONED_IN_BY_TYPE: dict[str, str] = {
 _COUNT_CHUNKS = "MATCH (c:Chunk {doc_sha256: $sha256}) RETURN count(c) AS n"
 
 
+# ─── claim layer (M4) ─────────────────────────────────────────────────────────
+#
+# status='alleged' is a literal set ON CREATE — never sourced from a row, never
+# overwriting a later human-review status. The chunk is MATCHed (must pre-exist
+# from the spine), so a :Claim cannot be created detached from its provenance.
+_CLAIM_CORE = """\
+UNWIND $rows AS row
+MATCH (ck:Chunk {chunk_id: row.chunk_id})
+MERGE (cl:Claim {claim_id: row.claim_id})
+  ON CREATE SET cl.text = row.text,
+               cl.status = 'alleged',
+               cl.attribution = row.attribution,
+               cl.extraction_method = row.extraction_method,
+               cl.quote = row.quote,
+               cl.quote_start = row.quote_start,
+               cl.quote_end = row.quote_end,
+               cl.certainty = row.certainty,
+               cl.has_unresolved_subject = row.has_unresolved_subject,
+               cl.unresolved_subjects = row.unresolved_subjects,
+               cl.unresolved_objects = row.unresolved_objects
+MERGE (sp:Person {name: row.speaker_name})
+MERGE (cl)-[:STATED_BY]->(sp)
+MERGE (cl)-[:SUPPORTED_BY]->(ck)
+"""
+
+# Subject/object edges: one MENTIONS per (claim, canonical entity), role on the
+# edge. The claim is MATCHed (created by _CLAIM_CORE first), the entity MERGEd.
+_CLAIM_MENTIONS_PERSON = """\
+UNWIND $rows AS row
+MATCH (cl:Claim {claim_id: row.claim_id})
+MERGE (e:Person {name: row.entity_name})
+MERGE (cl)-[m:MENTIONS]->(e)
+  ON CREATE SET m.role = row.role
+"""
+
+_CLAIM_MENTIONS_ORG = """\
+UNWIND $rows AS row
+MATCH (cl:Claim {claim_id: row.claim_id})
+MERGE (e:Organisation {name: row.entity_name})
+MERGE (cl)-[m:MENTIONS]->(e)
+  ON CREATE SET m.role = row.role
+"""
+
+_CLAIM_MENTIONS_PLACE = """\
+UNWIND $rows AS row
+MATCH (cl:Claim {claim_id: row.claim_id})
+MERGE (e:Place {name: row.entity_name})
+MERGE (cl)-[m:MENTIONS]->(e)
+  ON CREATE SET m.role = row.role
+"""
+
+_CLAIM_MENTIONS_BY_TYPE: dict[str, str] = {
+    "person": _CLAIM_MENTIONS_PERSON,
+    "org":    _CLAIM_MENTIONS_ORG,
+    "place":  _CLAIM_MENTIONS_PLACE,
+}
+
+
 # ─── stats ────────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -164,6 +260,141 @@ class GraphStats:
     speaker_unresolved: int = 0
     mention_edges: int = 0
     mention_unresolved: int = 0
+    # claim layer (M4) — headline totals; full detail in ClaimStats
+    chunks_no_extraction: int = 0
+    claims_written: int = 0
+    claims_speaker_unresolved: int = 0
+    claims_quote_unrecovered: int = 0
+    claim_mentions_edges: int = 0
+    claims_with_unresolved_subject: int = 0
+
+
+@dataclass
+class ClaimStats:
+    """Per-type counts from write_claims — the canary reads these to assert load
+    invariants and (via two runs) idempotency. Counts reflect rows the writer
+    *attempted*; live DB node/edge counts are asserted separately in the canary."""
+    claims_written: int = 0
+    claims_speaker_unresolved: int = 0   # skipped: no STATED_BY :Person possible
+    claims_quote_unrecovered: int = 0    # skipped: find_quote None == fabricated quote
+    stated_by_edges: int = 0
+    supported_by_edges: int = 0
+    mentions_edges: int = 0               # canonical subject+object MENTIONS edges
+    claims_with_unresolved_subject: int = 0
+    unresolved_subject_refs: int = 0
+    unresolved_object_refs: int = 0
+
+    def add(self, other: "ClaimStats") -> None:
+        self.claims_written += other.claims_written
+        self.claims_speaker_unresolved += other.claims_speaker_unresolved
+        self.claims_quote_unrecovered += other.claims_quote_unrecovered
+        self.stated_by_edges += other.stated_by_edges
+        self.supported_by_edges += other.supported_by_edges
+        self.mentions_edges += other.mentions_edges
+        self.claims_with_unresolved_subject += other.claims_with_unresolved_subject
+        self.unresolved_subject_refs += other.unresolved_subject_refs
+        self.unresolved_object_refs += other.unresolved_object_refs
+
+
+# ─── claim row building (pure — no driver, fully unit-testable) ───────────────
+
+_MENTION_GROUPS = ("person", "org", "place")
+
+
+def build_claim_rows(
+    chunk: ChunkRecord,
+    extraction: ChunkExtraction,
+    canonical_store: CanonicalStore,
+    *,
+    extraction_method: str,
+) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, str]]], ClaimStats]:
+    """Resolve one chunk's claims into Cypher rows (docs/decisions/0005).
+
+    Pure function: resolution, quote recovery, claim_id and the raw-subject
+    fallthrough policy all live here so they can be tested without a driver.
+    Returns (core_rows, mention_rows_by_type, stats).
+
+    A claim is dropped (counted, not silently lost) when its speaker does not
+    resolve (no STATED_BY :Person is possible) or its quote is not recoverable
+    (find_quote None == a fabricated quote that must never be written).
+    """
+    core_rows: list[dict[str, Any]] = []
+    mention_rows: dict[str, list[dict[str, str]]] = {g: [] for g in _MENTION_GROUPS}
+    stats = ClaimStats()
+    ref_map = {e.ref: e for e in extraction.entities}
+
+    for claim in extraction.claims:
+        speaker = canonical_store.lookup(claim.speaker, entity_type="person")
+        if speaker is None:
+            stats.claims_speaker_unresolved += 1
+            logger.debug("claim speaker unresolved: %r", claim.speaker)
+            continue
+        span = find_quote(chunk.text, claim.quote)
+        if span is None:
+            stats.claims_quote_unrecovered += 1
+            logger.warning(
+                "claim quote not recoverable in %s — dropping (fabricated quote?)",
+                chunk.chunk_id[:16],
+            )
+            continue
+        start, end = span
+        cid = claim_key(chunk.chunk_id, speaker.entity_id, claim.predicate, start, end)
+
+        unresolved_subjects: list[str] = []
+        unresolved_objects: list[str] = []
+        seen: set[str] = set()  # dedup canonical entity per claim
+
+        def _resolve(refs: list[str], role: str, sink: list[str]) -> None:
+            for ref in refs:
+                ent = ref_map.get(ref)
+                if ent is None:
+                    sink.append(ref)  # dangling chunk-local handle
+                    continue
+                group = _TYPE_GROUP.get(ent.type)
+                if group not in _MENTION_GROUPS:  # e.g. role — not a MENTIONS target
+                    sink.append(ent.name)
+                    continue
+                hit = canonical_store.lookup(ent.name, entity_type=ent.type)
+                if hit is None:
+                    sink.append(ent.name)  # raw fallthrough — kept on the claim
+                    continue
+                if hit.entity_id in seen:
+                    continue
+                seen.add(hit.entity_id)
+                mention_rows[group].append(
+                    {"claim_id": cid, "entity_name": hit.name, "role": role}
+                )
+                stats.mentions_edges += 1
+
+        _resolve(claim.subject_refs, "subject", unresolved_subjects)
+        _resolve(claim.object_refs, "object", unresolved_objects)
+
+        has_unresolved_subject = bool(unresolved_subjects)
+        if has_unresolved_subject:
+            stats.claims_with_unresolved_subject += 1
+            stats.unresolved_subject_refs += len(unresolved_subjects)
+        stats.unresolved_object_refs += len(unresolved_objects)
+
+        core_rows.append({
+            "chunk_id":               chunk.chunk_id,
+            "claim_id":               cid,
+            "text":                   claim.predicate,
+            "attribution":            claim.speaker,
+            "extraction_method":      extraction_method,
+            "speaker_name":           speaker.name,
+            "quote":                  claim.quote,
+            "quote_start":            start,
+            "quote_end":              end,
+            "certainty":              claim.certainty,
+            "has_unresolved_subject": has_unresolved_subject,
+            "unresolved_subjects":    unresolved_subjects,
+            "unresolved_objects":     unresolved_objects,
+        })
+        stats.claims_written += 1
+        stats.stated_by_edges += 1
+        stats.supported_by_edges += 1
+
+    return core_rows, mention_rows, stats
 
 
 # ─── store ────────────────────────────────────────────────────────────────────
@@ -345,3 +576,54 @@ class Neo4jStore:
             written += len(rows)
 
         return written, unresolved
+
+    # ── claims (M4) ───────────────────────────────────────────────────────────
+
+    def write_claims(
+        self,
+        claim_inputs: list[tuple[ChunkRecord, ChunkExtraction]],
+        canonical_store: CanonicalStore,
+        *,
+        extraction_method: str,
+    ) -> ClaimStats:
+        """Write the :Claim layer for a set of (chunk, extraction) pairs.
+
+        Per docs/decisions/0005: :Claim MERGEd on a deterministic claim_id with
+        status='alleged' written ON CREATE; exactly one STATED_BY :Person, one
+        SUPPORTED_BY :Chunk, and MENTIONS edges for resolved subjects/objects.
+        Unresolved subjects are recorded on the claim, never dropped. All writes
+        are MERGE-only and idempotent. Core rows are written before MENTIONS so
+        the claim node exists for the MENTIONS MATCH.
+        """
+        total = ClaimStats()
+        core_rows: list[dict[str, Any]] = []
+        mention_rows: dict[str, list[dict[str, str]]] = {g: [] for g in _MENTION_GROUPS}
+
+        for chunk, extraction in claim_inputs:
+            rows, mentions, stats = build_claim_rows(
+                chunk, extraction, canonical_store,
+                extraction_method=extraction_method,
+            )
+            core_rows.extend(rows)
+            for group in _MENTION_GROUPS:
+                mention_rows[group].extend(mentions[group])
+            total.add(stats)
+
+        for start in range(0, len(core_rows), BATCH_SIZE):
+            batch = core_rows[start : start + BATCH_SIZE]
+            with self._driver.session() as session:
+                session.execute_write(lambda tx, b=batch: tx.run(_CLAIM_CORE, rows=b))
+
+        for group in _MENTION_GROUPS:
+            rows = mention_rows[group]
+            if not rows:
+                continue
+            query = _CLAIM_MENTIONS_BY_TYPE[group]
+            for start in range(0, len(rows), BATCH_SIZE):
+                batch = rows[start : start + BATCH_SIZE]
+                with self._driver.session() as session:
+                    session.execute_write(
+                        lambda tx, q=query, b=batch: tx.run(q, rows=b)
+                    )
+
+        return total

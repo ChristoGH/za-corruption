@@ -22,10 +22,17 @@ from dataclasses import dataclass, field
 
 import pytest
 
+from commission_ingestion.extraction.schema import (
+    ChunkExtraction,
+    ExtractedClaim,
+    ExtractedEntity,
+)
 from commission_ingestion.graph.mentions import DetectedMention
 from commission_ingestion.graph.neo4j_store import (
     GraphStats,
     Neo4jStore,
+    build_claim_rows,
+    claim_key,
     hearing_key,
     page_key,
 )
@@ -436,3 +443,250 @@ def test_bootstrap_spine_queries_only_use_merge(store: Neo4jStore):
     store.write_spine([make_chunk()], make_source(authoritative=False))
     for q in store._driver.all_queries:
         assert "MERGE" in q
+
+
+# ─── claim layer (M4) — docs/decisions/0005 ───────────────────────────────────
+
+_METHOD = "claude-haiku-4-5:extract_v1"
+
+
+def make_claim(
+    *, speaker="ADV BALOYI SC", subject_refs=None, object_refs=None,
+    predicate="stated that SAPS acted unlawfully", quote="SAPS acted unlawfully",
+    certainty=None,
+) -> ExtractedClaim:
+    return ExtractedClaim(
+        speaker=speaker,
+        subject_refs=subject_refs if subject_refs is not None else [],
+        predicate=predicate,
+        object_refs=object_refs if object_refs is not None else [],
+        quote=quote,
+        certainty=certainty,
+    )
+
+
+def make_extraction(claims, entities=None) -> ChunkExtraction:
+    return ChunkExtraction(
+        entities=entities or [],
+        mentions=[],
+        claims=claims,
+    )
+
+
+def claim_chunk(text="ADV BALOYI SC: SAPS acted unlawfully in Johannesburg.") -> ChunkRecord:
+    return make_chunk(text=text)
+
+
+# ── claim_id MERGE key (Decision 1) ───────────────────────────────────────────
+
+def test_claim_key_is_deterministic():
+    a = claim_key("chunkA", "person:baloyi", "stated that X", 3, 10)
+    b = claim_key("chunkA", "person:baloyi", "stated that X", 3, 10)
+    assert a == b
+    assert len(a) == 64  # sha256 hex
+
+
+def test_claim_key_differs_on_distinct_fields():
+    base = claim_key("chunkA", "person:baloyi", "stated that X", 3, 10)
+    assert base != claim_key("chunkB", "person:baloyi", "stated that X", 3, 10)
+    assert base != claim_key("chunkA", "person:madlanga", "stated that X", 3, 10)
+    assert base != claim_key("chunkA", "person:baloyi", "stated that Y", 3, 10)
+    assert base != claim_key("chunkA", "person:baloyi", "stated that X", 4, 11)
+
+
+def test_claim_key_normalizes_predicate_whitespace_and_case():
+    assert (
+        claim_key("c", "p", "Stated  that\nX", 0, 1)
+        == claim_key("c", "p", "stated that x", 0, 1)
+    )
+
+
+def test_claim_rows_idempotent_same_claim_id(canon: CanonicalStore):
+    chunk = claim_chunk()
+    ext = make_extraction([make_claim()])
+    rows1, _, _ = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
+    rows2, _, _ = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
+    assert rows1[0]["claim_id"] == rows2[0]["claim_id"]
+
+
+# ── status is writer-authored, never from input ───────────────────────────────
+
+def test_status_alleged_is_cypher_literal_never_a_row_field(
+    store: Neo4jStore, canon: CanonicalStore
+):
+    chunk = claim_chunk()
+    ext = make_extraction([make_claim()])
+    store.write_claims([(chunk, ext)], canon, extraction_method=_METHOD)
+    core_q = next(q for q in store._driver.all_queries if ":Claim" in q)
+    assert "cl.status = 'alleged'" in core_q
+    # status set ON CREATE so re-runs never clobber a human-review status
+    assert "ON CREATE SET" in core_q
+    for params in store._driver.all_params:
+        for row in params.get("rows", []):
+            assert "status" not in row
+
+
+# ── STATED_BY / SUPPORTED_BY (speaker + provenance) ───────────────────────────
+
+def test_claim_has_stated_by_supported_by_and_matches_chunk(
+    store: Neo4jStore, canon: CanonicalStore
+):
+    chunk = claim_chunk()
+    store.write_claims([(chunk, make_extraction([make_claim()]))], canon,
+                       extraction_method=_METHOD)
+    core_q = next(q for q in store._driver.all_queries if ":Claim" in q)
+    assert "STATED_BY" in core_q
+    assert "SUPPORTED_BY" in core_q
+    # Provenance is structural: the chunk is MATCHed (must pre-exist), never created
+    assert "MATCH (ck:Chunk" in core_q
+    row = next(p["rows"] for p in store._driver.all_params if p.get("rows"))[0]
+    assert row["speaker_name"] == "Adv Sesi Baloyi SC"
+    assert row["extraction_method"] == _METHOD
+
+
+def test_claim_speaker_unresolved_is_skipped_and_counted(canon: CanonicalStore):
+    chunk = claim_chunk()
+    ext = make_extraction([make_claim(speaker="UNKNOWN SPEAKER ZZZ")])
+    rows, mentions, stats = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
+    assert rows == []
+    assert stats.claims_written == 0
+    assert stats.claims_speaker_unresolved == 1
+
+
+def test_claim_quote_unrecoverable_is_skipped_and_counted(canon: CanonicalStore):
+    chunk = claim_chunk(text="ADV BALOYI SC: Something entirely different was said.")
+    ext = make_extraction([make_claim(quote="this phrase is not in the chunk at all")])
+    rows, _, stats = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
+    assert rows == []
+    assert stats.claims_written == 0
+    assert stats.claims_quote_unrecovered == 1
+
+
+# ── subject edges + raw-subject fallthrough (Decision 2) ──────────────────────
+
+def test_canonical_subject_becomes_mentions_edge(canon: CanonicalStore):
+    chunk = claim_chunk()
+    ext = make_extraction(
+        [make_claim(subject_refs=["e1"])],
+        entities=[ExtractedEntity(ref="e1", name="SAPS", type="org")],
+    )
+    rows, mentions, stats = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
+    assert stats.claims_written == 1
+    assert stats.mentions_edges == 1
+    assert mentions["org"][0]["entity_name"] == "South African Police Service"
+    assert mentions["org"][0]["role"] == "subject"
+    assert rows[0]["has_unresolved_subject"] is False
+    assert rows[0]["unresolved_subjects"] == []
+
+
+def test_raw_subject_recorded_on_claim_not_dropped(canon: CanonicalStore):
+    chunk = claim_chunk(text="ADV BALOYI SC: Maj-Gen Khumalo acted unlawfully here.")
+    ext = make_extraction(
+        [make_claim(subject_refs=["e1"], quote="acted unlawfully")],
+        entities=[ExtractedEntity(ref="e1", name="MAJ-GEN KHUMALO", type="person")],
+    )
+    rows, mentions, stats = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
+    # the claim IS written — the allegation is not lost
+    assert stats.claims_written == 1
+    # but no canonical MENTIONS edge, and the surface is kept on the claim, flagged
+    assert mentions["person"] == []
+    assert stats.mentions_edges == 0
+    assert rows[0]["has_unresolved_subject"] is True
+    assert rows[0]["unresolved_subjects"] == ["MAJ-GEN KHUMALO"]
+    assert stats.claims_with_unresolved_subject == 1
+    assert stats.unresolved_subject_refs == 1
+
+
+def test_mixed_subject_partial_resolution(canon: CanonicalStore):
+    chunk = claim_chunk(text="ADV BALOYI SC: SAPS and Maj-Gen Khumalo were involved.")
+    ext = make_extraction(
+        [make_claim(subject_refs=["e1", "e2"], quote="were involved")],
+        entities=[
+            ExtractedEntity(ref="e1", name="SAPS", type="org"),
+            ExtractedEntity(ref="e2", name="MAJ-GEN KHUMALO", type="person"),
+        ],
+    )
+    rows, mentions, stats = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
+    assert stats.mentions_edges == 1          # SAPS resolved
+    assert mentions["org"][0]["entity_name"] == "South African Police Service"
+    assert rows[0]["unresolved_subjects"] == ["MAJ-GEN KHUMALO"]  # khumalo kept
+    assert rows[0]["has_unresolved_subject"] is True
+
+
+def test_object_ref_gets_role_object(canon: CanonicalStore):
+    chunk = claim_chunk()
+    ext = make_extraction(
+        [make_claim(subject_refs=["e1"], object_refs=["e2"])],
+        entities=[
+            ExtractedEntity(ref="e1", name="SAPS", type="org"),
+            ExtractedEntity(ref="e2", name="Johannesburg", type="place"),
+        ],
+    )
+    _, mentions, stats = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
+    assert mentions["org"][0]["role"] == "subject"
+    assert mentions["place"][0]["role"] == "object"
+    assert stats.mentions_edges == 2
+
+
+def test_same_entity_subject_and_object_deduped(canon: CanonicalStore):
+    chunk = claim_chunk()
+    ext = make_extraction(
+        [make_claim(subject_refs=["e1"], object_refs=["e1"])],
+        entities=[ExtractedEntity(ref="e1", name="SAPS", type="org")],
+    )
+    _, mentions, stats = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
+    assert stats.mentions_edges == 1               # one edge, not two
+    assert mentions["org"][0]["role"] == "subject"  # subject processed first
+
+
+# ── banned relationships + MERGE-only (mirror M3 safety tests) ─────────────────
+
+def _write_full_claim(store: Neo4jStore, canon: CanonicalStore) -> None:
+    chunk = claim_chunk()
+    ext = make_extraction(
+        [make_claim(subject_refs=["e1"])],
+        entities=[ExtractedEntity(ref="e1", name="SAPS", type="org")],
+    )
+    store.write_claims([(chunk, ext)], canon, extraction_method=_METHOD)
+
+
+def test_claim_writer_no_appears_in(store: Neo4jStore, canon: CanonicalStore):
+    _write_full_claim(store, canon)
+    assert "APPEARS_IN" not in store._driver.combined_query_text()
+
+
+def test_claim_writer_only_uses_canonical_claim_relationships(
+    store: Neo4jStore, canon: CanonicalStore
+):
+    _write_full_claim(store, canon)
+    text = store._driver.combined_query_text()
+    # the only relationship types the claim writer may emit
+    assert "STATED_BY" in text
+    assert "SUPPORTED_BY" in text
+    assert "MENTIONS" in text
+    # MENTIONS originates AT the claim — never a subject wired bypassing it
+    for q in store._driver.all_queries:
+        if "MENTIONS" in q:
+            assert "(cl)-[m:MENTIONS]->(e" in q
+
+
+def test_claim_writer_uses_merge_not_bare_create(
+    store: Neo4jStore, canon: CanonicalStore
+):
+    _write_full_claim(store, canon)
+    for q in store._driver.all_queries:
+        lines = [ln for ln in q.splitlines() if not ln.strip().startswith("ON CREATE")]
+        assert "CREATE (" not in "\n".join(lines), f"bare CREATE in:\n{q}"
+
+
+def test_claim_writer_returns_per_type_counts(store: Neo4jStore, canon: CanonicalStore):
+    chunk = claim_chunk()
+    ext = make_extraction(
+        [make_claim(subject_refs=["e1"])],
+        entities=[ExtractedEntity(ref="e1", name="SAPS", type="org")],
+    )
+    stats = store.write_claims([(chunk, ext)], canon, extraction_method=_METHOD)
+    assert stats.claims_written == 1
+    assert stats.stated_by_edges == 1
+    assert stats.supported_by_edges == 1
+    assert stats.mentions_edges == 1

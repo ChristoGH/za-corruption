@@ -24,9 +24,19 @@ from pathlib import Path
 from commission_ingestion.cli.load_qdrant import read_chunk_files
 from commission_ingestion.cli.parse_corpus import DEFAULT_PROCESSED_DIR
 from commission_ingestion.download.registry import DEFAULT_REGISTRY_PATH, SourceRegistry
-from commission_ingestion.graph.neo4j_store import GraphStats, Neo4jStore
+from commission_ingestion.extraction.cache import DEFAULT_CACHE_DIR, ExtractionCache
+from commission_ingestion.extraction.schema import PROMPT_VERSION, ChunkExtraction
+from commission_ingestion.graph.neo4j_store import (
+    ClaimStats,
+    GraphStats,
+    Neo4jStore,
+    build_claim_rows,
+)
+from commission_ingestion.models.chunk_record import ChunkRecord
 from commission_ingestion.models.source_record import SourceRecord
 from commission_ingestion.resolution.canonical import DEFAULT_SEED_PATH, load_store
+
+DEFAULT_EXTRACT_MODEL = "claude-haiku-4-5"
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +51,30 @@ def _source_by_sha(registry: SourceRegistry, commission: str) -> dict[str, Sourc
     }
 
 
+def _load_claim_inputs(
+    chunks: list[ChunkRecord], cache: ExtractionCache, model: str
+) -> tuple[list[tuple[ChunkRecord, ChunkExtraction]], int]:
+    """Pair each chunk with its cached extraction; count chunks with no cache
+    entry (claim extraction not run for them — surfaced, never assumed empty)."""
+    inputs: list[tuple[ChunkRecord, ChunkExtraction]] = []
+    no_extraction = 0
+    for chunk in chunks:
+        payload = cache.get(chunk.chunk_id, PROMPT_VERSION, model)
+        if payload is None:
+            no_extraction += 1
+            continue
+        inputs.append((chunk, ChunkExtraction.model_validate(payload["extraction"])))
+    return inputs, no_extraction
+
+
+def _fold_claim_stats(stats: GraphStats, cs: ClaimStats) -> None:
+    stats.claims_written += cs.claims_written
+    stats.claims_speaker_unresolved += cs.claims_speaker_unresolved
+    stats.claims_quote_unrecovered += cs.claims_quote_unrecovered
+    stats.claim_mentions_edges += cs.mentions_edges
+    stats.claims_with_unresolved_subject += cs.claims_with_unresolved_subject
+
+
 def _process_commission(
     commission: str,
     *,
@@ -52,6 +86,9 @@ def _process_commission(
     limit: int | None,
     dry_run: bool,
     force: bool,
+    with_claims: bool = False,
+    extract_model: str = DEFAULT_EXTRACT_MODEL,
+    cache: ExtractionCache | None = None,
 ) -> GraphStats:
     stats = GraphStats()
     documents = read_chunk_files(processed_dir, commission)
@@ -75,6 +112,17 @@ def _process_commission(
         if dry_run:
             stats.docs_loaded += 1
             stats.chunks_written += len(chunks)
+            if with_claims and cache is not None:
+                inputs, no_ext = _load_claim_inputs(chunks, cache, extract_model)
+                stats.chunks_no_extraction += no_ext
+                doc_cs = ClaimStats()
+                for chunk, extraction in inputs:
+                    _, _, cs = build_claim_rows(
+                        chunk, extraction, canonical_store,
+                        extraction_method=f"{extract_model}:{PROMPT_VERSION}",
+                    )
+                    doc_cs.add(cs)
+                _fold_claim_stats(stats, doc_cs)
             continue
 
         if not force and store.count_chunks(sha) == len(chunks):
@@ -101,10 +149,23 @@ def _process_commission(
             stats.mention_edges += mention_written
             stats.mention_unresolved += unresolved_m
 
+        # Claims load LAST — after spine + SPOKE_IN + MENTIONED_IN — so the
+        # :Person and :Chunk targets the claim attaches to already exist.
+        claims_written = 0
+        if with_claims and cache is not None:
+            inputs, no_ext = _load_claim_inputs(chunks, cache, extract_model)
+            stats.chunks_no_extraction += no_ext
+            cs = store.write_claims(
+                inputs, canonical_store,
+                extraction_method=f"{extract_model}:{PROMPT_VERSION}",
+            )
+            _fold_claim_stats(stats, cs)
+            claims_written = cs.claims_written
+
         stats.docs_loaded += 1
         logger.info(
-            "day %s: %d chunks → spine + %d SPOKE_IN + %d MENTIONED_IN",
-            chunks[0].day_no, len(chunks), spoken, mention_written,
+            "day %s: %d chunks → spine + %d SPOKE_IN + %d MENTIONED_IN + %d claims",
+            chunks[0].day_no, len(chunks), spoken, mention_written, claims_written,
         )
 
     return stats
@@ -134,6 +195,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-ner", action="store_true",
         help="Write spine + SPOKE_IN only; skip the spaCy MENTIONED_IN pass.",
+    )
+    parser.add_argument(
+        "--with-claims", action="store_true",
+        help="Also load the :Claim layer from cached LLM extractions "
+             "(after spine + SPOKE_IN + MENTIONED_IN).",
+    )
+    parser.add_argument(
+        "--extract-model", default=DEFAULT_EXTRACT_MODEL,
+        help=f"Model whose cached extractions to load (default: {DEFAULT_EXTRACT_MODEL}).",
+    )
+    parser.add_argument(
+        "--cache-dir", type=Path, default=DEFAULT_CACHE_DIR,
+        help="Extraction cache root for --with-claims.",
     )
     parser.add_argument(
         "--limit", type=int, default=None,
@@ -186,6 +260,8 @@ def run_cli(argv: list[str] | None = None) -> int:
     if not args.dry_run:
         store = Neo4jStore(uri=args.neo4j_uri)
 
+    cache = ExtractionCache(args.cache_dir) if args.with_claims else None
+
     total = GraphStats()
     try:
         for commission in commissions:
@@ -200,6 +276,9 @@ def run_cli(argv: list[str] | None = None) -> int:
                 limit=args.limit,
                 dry_run=args.dry_run,
                 force=args.force,
+                with_claims=args.with_claims,
+                extract_model=args.extract_model,
+                cache=cache,
             )
             total.docs_loaded        += stats.docs_loaded
             total.docs_skipped       += stats.docs_skipped
@@ -210,6 +289,12 @@ def run_cli(argv: list[str] | None = None) -> int:
             total.speaker_unresolved += stats.speaker_unresolved
             total.mention_edges      += stats.mention_edges
             total.mention_unresolved += stats.mention_unresolved
+            total.chunks_no_extraction          += stats.chunks_no_extraction
+            total.claims_written                += stats.claims_written
+            total.claims_speaker_unresolved     += stats.claims_speaker_unresolved
+            total.claims_quote_unrecovered      += stats.claims_quote_unrecovered
+            total.claim_mentions_edges          += stats.claim_mentions_edges
+            total.claims_with_unresolved_subject += stats.claims_with_unresolved_subject
     finally:
         if store is not None:
             store.close()
@@ -226,6 +311,15 @@ def run_cli(argv: list[str] | None = None) -> int:
           f"  (unresolved: {total.speaker_unresolved})")
     print(f"  MENTIONED_IN edges:    {total.mention_edges}"
           f"  (unresolved: {total.mention_unresolved})")
+    if args.with_claims:
+        print(f"  Claims written:        {total.claims_written}"
+              f"  (model: {args.extract_model})")
+        print(f"  Claim MENTIONS edges:  {total.claim_mentions_edges}")
+        print(f"  Claims w/ raw subject: {total.claims_with_unresolved_subject}")
+        print(f"  Claims skipped:        "
+              f"speaker_unresolved={total.claims_speaker_unresolved}, "
+              f"quote_unrecovered={total.claims_quote_unrecovered}")
+        print(f"  Chunks w/o extraction: {total.chunks_no_extraction}")
 
     if total.docs_no_source > 0:
         return 1

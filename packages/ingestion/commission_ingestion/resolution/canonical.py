@@ -98,8 +98,33 @@ class CanonicalStore:
                     )
                 self.alias_index[key] = entity
 
-        # Bare (title-stripped) index — only forms owned by exactly one entity
-        # within the group, and not already a full-form alias there.
+        # Ambiguous bare surnames (finding #2): a single-token bare surname carried
+        # by >1 canonical entity must NOT auto-resolve — derived from the seed by
+        # counting how many entities carry each non-title token across their surface
+        # forms, so the next colliding surname is protected with no code change.
+        #
+        # Why a token count, not the strip-based `owners` count below: KHUMALO was
+        # already safe because two Khumalos' aliases each STRIP to the bare surname.
+        # MKHWANAZI was NOT — only nhlanhla's LT-GEN/GENERAL aliases strip to bare
+        # "MKHWANAZI"; jd-mkhwanazi's COMMISSIONER/BRIGADIER forms do not (those
+        # words aren't title tokens), so a bare "Mkhwanazi" wrongly resolved to the
+        # KZN general. Token ownership counts jd as an owner of MKHWANAZI too.
+        surname_owners: dict[tuple[str, str], set[str]] = {}
+        for entity in self.entities:
+            group = _TYPE_GROUP[entity.entity_type]
+            tokens: set[str] = set()
+            for form in entity.surface_forms():
+                tokens.update(strip_titles(form).split())
+            for tok in tokens:
+                surname_owners.setdefault((group, tok), set()).add(entity.entity_id)
+        self.ambiguous_surnames = {
+            key for key, ids in surname_owners.items() if len(ids) > 1
+        }
+
+        # Bare (title-stripped) index — forms owned by exactly one entity within the
+        # group, not already a full-form alias, and not an ambiguous surname. This
+        # only ever SUPPRESSES an unsafe auto-resolution; it never creates one, and
+        # full-form alias resolution (alias_index) is untouched.
         owners: dict[tuple[str, str], set[str]] = {}
         for entity in self.entities:
             group = _TYPE_GROUP[entity.entity_type]
@@ -110,7 +135,9 @@ class CanonicalStore:
         self.bare_index = {
             key: self.by_id[next(iter(ids))]
             for key, ids in owners.items()
-            if len(ids) == 1 and key not in self.alias_index
+            if len(ids) == 1
+            and key not in self.alias_index
+            and key not in self.ambiguous_surnames
         }
 
     def lookup(self, surface: str, entity_type: str = "person") -> CanonicalEntity | None:

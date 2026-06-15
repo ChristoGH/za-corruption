@@ -115,6 +115,45 @@ entities:
     type: person
     aliases: [LT-GEN MKHWANAZI, GENERAL MKHWANAZI]
     note: KwaZulu-Natal provincial police commissioner; the July 2025 allegations that led to the commission.
+
+  # ── Metro / EMPD "COMMISSIONER <surname>" witnesses ──────────────────────
+  # These testify as "COMMISSIONER <SURNAME>" — a full role+surname speaker form,
+  # each its OWN scoped entity, never collapsed on bare surname (cf. four-Khumalos
+  # rule). NB the parser (parsing/turns.py LABEL_RE) does NOT yet detect
+  # "COMMISSIONER <surname>:" as a turn boundary, so SPOKE_IN currently absorbs
+  # these turns into the preceding speaker (Mkhwanazi 5316, Spies 905, Faro 719,
+  # Bolhuis 241, Malatji 4 inline turns) — see pre-step A finding. The claim
+  # writer still resolves the model-attributed speaker via these aliases so
+  # STATED_BY is populated; a turns.py fix (re-chunk cascade) is sequenced later.
+  - id: person:jd-mkhwanazi
+    name: Brigadier JD Mkhwanazi
+    type: person
+    aliases: [COMMISSIONER MKHWANAZI, DIRECTOR MKHWANAZI, BRIGADIER MKHWANAZI, BRIGADIER JD MKHWANAZI, JD MKHWANAZI]
+    note: >-
+      EMPD (Ekurhuleni Metro Police) officer / Acting Deputy Chief of Police; suspended 2023;
+      day-43 witness. DISTINCT from Lt-Gen Nhlanhla Mkhwanazi (person:nhlanhla-mkhwanazi) and
+      from "Julius Mkhwanazi"/"Doctor Mkhwanazi" who also appear — surname collides badly.
+      Identity inferred from day 31/43 testimony; VERIFY before publication. Never alias bare MKHWANAZI.
+  - id: person:revo-spies
+    name: Deputy Chief Revo Spies
+    type: person
+    aliases: [COMMISSIONER SPIES, DEPUTY CHIEF REVO SPIES, COMMISSIONER REVO SPIES]
+    note: EMPD officer (Revo Spies); receives the witness's tools/documents on suspension. VERIFY before publication.
+  - id: person:commissioner-faro
+    name: Commissioner Faro
+    type: person
+    aliases: [COMMISSIONER FARO]
+    note: Metro-police COMMISSIONER FARO witness/speaker (719 inline turns). Full given name not established — VERIFY.
+  - id: person:commissioner-bolhuis
+    name: Commissioner Bolhuis
+    type: person
+    aliases: [COMMISSIONER BOLHUIS]
+    note: Speaker COMMISSIONER BOLHUIS (241 inline turns). Identity not established — VERIFY before publication.
+  - id: person:commissioner-malatji
+    name: Commissioner Malatji
+    type: person
+    aliases: [COMMISSIONER MALATJI]
+    note: Speaker COMMISSIONER MALATJI (4 inline turns). Identity not established — VERIFY before publication.
   - id: person:shadrack-sibiya
     name: Lt-Gen Shadrack Sibiya
     type: person
