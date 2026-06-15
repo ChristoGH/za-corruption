@@ -180,6 +180,19 @@ A uv workspace (`requires-python >=3.12`) with a single member package
 - `cli/cross_model_eval.py` — `cross-model-eval` CLI: runs Gate 2 evaluation against
   the frozen stratified sample; cache-aware (re-runs cost $0 if arms already cached).
 
+### Two `eval/` directories — intentional split
+
+- **`eval/artifacts/`** (repo root) — output artifacts from completed eval runs:
+  `gate2_model_review.md`, `hardcase_appendix.md`, `metrics.json`, `sample_17.txt`.
+  These are versioned results, not code.
+- **`packages/ingestion/commission_ingestion/eval/`** — the harness code that produces
+  them: `sample.py`, `compare.py`, `framing_judge.py`, `report.py`. Importable as
+  `commission_ingestion.eval`.
+
+The split is intentional: harness code belongs with the package it depends on;
+run-specific artifacts belong at repo root alongside other output directories
+(`assets/`, `data/`).
+
 ### Tests
 **101 passing** (`uv run pytest packages/ingestion/tests/`): madlanga discovery +
 classification, zondo + zondo-bootstrap discovery, downloader (incl. 404→missing),
@@ -327,10 +340,11 @@ the canonical store docs, so confirm before pinning).
    both up; `make neo4j-constraints` applies constraints. `infra/docker/ingestion/`
    exists but no compose file for running the full ingestion pipeline in containers.
 
-7. **Live Neo4j load not yet smoke-tested end-to-end.** `build-graph` is implemented
-   and unit-tested with a `FakeDriver`. A full live run against a running Neo4j instance
-   (e.g. `make stores-up && make neo4j-constraints && build-graph --limit 5`) should be
-   done before treating M3 as fully accepted.
+7. **Live Neo4j smoke-test complete (2026-06-14).** `build-graph --commission madlanga
+   --limit 3 --force` against a running Neo4j instance produced: 530 chunks in the paged
+   `Document→Page→Chunk` spine, 928 SPOKE_IN edges, 1 279 MENTIONED_IN edges, 0 `:Claim`
+   nodes, 0 `APPEARS_IN` edges, 0 direct `Document-[:HAS_CHUNK]->Chunk` shortcuts on
+   paged docs. M3 is fully accepted.
 
 8. **LLM extraction safety design.** Beyond cost: confidence/method metadata enforcement,
    deterministic-checks-first, and never silently promoting a claim to a fact. The
@@ -362,7 +376,7 @@ are gated by the license/publication decision (§7.3), not by the data pipeline.
 | 0 | **Decide first corpus + Zondo source** (§7.1–7.2); stand up `docker-compose` (Qdrant+Neo4j) and `infra/neo4j/constraints.cypher` | — | §7.1 decided; constraints.cypher written; docker-compose not yet verified | Chosen corpus agreed; both stores reachable locally; constraints applied |
 | 1 | **Parse + speaker-aware chunk** (two paths: paged PDF / page-less bootstrap) | 0 | ✅ **M1 complete** | Every downloaded doc → chunks with `chunk_id`, page provenance (PDFs), speaker label, SHA256 lineage; deterministic, re-runnable |
 | 2 | **Embed + Qdrant load** into `commission_transcripts` | 1 | ✅ **M2 complete** | Semantic search returns relevant chunks with full payload (commission, day, page, chunk_id) |
-| 3 | **Deterministic + spaCy graph load** into Neo4j (spine + Person/Org/Place **mentions only**) | 1 | ✅ **M3 implemented & tested** — live smoke-test pending (see §7.7) | `Document→Page→Chunk` populated; `MENTIONED_IN` edges; **no claims/facts** |
+| 3 | **Deterministic + spaCy graph load** into Neo4j (spine + Person/Org/Place **mentions only**) | 1 | ✅ **M3 complete** — live smoke-tested 2026-06-14 (see §7.7) | `Document→Page→Chunk` populated; `MENTIONED_IN` edges; **no claims/facts** |
 | 4 | **LLM-assisted extraction** (Claude SDK) — claims/events/roles/positions | 3 (+model selection §7.4) | Infrastructure ✅; Gate 2 eval ✅; **awaiting model approval + budget** | Every write carries `confidence`+`extraction_method`; claims modelled as `:Claim … SUPPORTED_BY/STATED_BY`, never fact edges |
 | 5 | **API (`apps/api`)** over both stores, then **Web (`apps/web`)** | 2,4 (+license §7.3) | ❌ Not started (dirs not scaffolded) | MVP success-test flow works end-to-end; mentions visibly distinct from claims/findings |
 | 6 | **Human-review layer** — alias/dup resolution, high-risk claim confirmation | 4 | ❌ Not started | Reviewers can confirm/merge/flag; decisions persisted with provenance |

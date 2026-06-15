@@ -82,6 +82,43 @@ day, document, source URL, PDF SHA256, page number, chunk ID, evidence text,
 extraction method, and confidence. This matters legally — much of this content is
 allegation about named individuals.
 
+## Investigative stance and extraction posture
+
+The working stance for this repo is that of a journalistic investigator using the most
+capable methods available to extract maximum evidentiary value from witness testimony in
+the public record. The corpora are public-domain official records (Zondo and Madlanga
+proceedings). The primary goal is extraction **value and accuracy** — deep insight,
+meticulous detail, full specificity.
+
+Defamation protection here is **structural, not lexical**, and it is already carried by
+the one principle above. They are the same commitment seen from two sides:
+
+- **Content stays sharp.** Never bleach, anonymise, soften, summarise away, or hedge claim
+  *text*. Preserve every proper name, figure, date, and quote at full specificity. Do not
+  drop a claim because it is damaging — a precisely attributed allegation from the public
+  record is exactly what this pipeline exists to capture.
+- **Structure carries the qualification.** All uncertainty and verification status lives in
+  the claim's structured fields (`status`, `attribution`, `confidence`) and in the
+  evidence-graph topology — never in the claim text. A `(:Claim)` is `STATED_BY` a
+  `(:Person)` and `SUPPORTED_BY` a `(:Chunk)`; it is never a fact edge. That topology is
+  what makes full-specificity claim text safe to store.
+
+**Reconciling with the safety posture.** "Human review of high-risk claims," "never present
+testimony as proven fact," and "keep confidence + method metadata" are all about *status,
+corroboration, and provenance* — never about softening, anonymising, or omitting claim
+content. Verification changes a claim's `status`/`confidence` and may add corroborating or
+contradicting relationships; it never edits the allegation to read more tamely. Do not
+soften extraction in fear of defamation.
+
+**Vocabulary note.** A generic version of this directive (used in the cross-tool config
+files) phrases the pattern as `(speaker)-[:TESTIFIED]->(claim)-[:ALLEGES_ABOUT]->(subject)`
+with fields `modality` / `corroboration` / `disposition`. Those are **illustrative of the
+principle, not the schema.** This repo's settled naming in `docs/ontology.md` and
+`docs/neo4j-model.md` — `STATED_BY`, `SUPPORTED_BY`, and `:Claim {status, attribution,
+confidence}` — is canonical and wins. If `modality`/`corroboration`/`disposition` are
+genuinely wanted, add them to `docs/ontology.md` deliberately; never introduce a parallel
+vocabulary through agent-config files.
+
 ## Architecture (intended)
 
 ```
@@ -153,7 +190,14 @@ Repo-specific notes:
 - This corpus contains serious allegations about named, often private, individuals.
   Keep the safety posture from `docs/vision.md` §21 (and `DISCLAIMER.md`): preserve source
   evidence, never present testimony as proven fact, keep confidence + method metadata,
-  support human review.
+  support human review. This governs *status, provenance, and corroboration* — not the
+  specificity of claim text (see **Investigative stance and extraction posture** above):
+  it is never a licence to bleach, anonymise, or drop a claim.
+- **Cross-tool directive parity.** The same investigative stance is mirrored for other
+  agents in `AGENTS.md` (read by Codex and AGENTS.md-aware tools) and in an always-apply
+  `.cursor` rule. This file and `docs/` remain canonical for ontology and relationship
+  naming; the config files must not introduce edge names or fields that diverge from
+  `docs/ontology.md`.
 - License: **Apache-2.0** for the code (`LICENSE`/`NOTICE`); the underlying records are
   official public records (not relicensed) and derived artifacts are CC BY 4.0 — see
   `DISCLAIMER.md`.
