@@ -1,0 +1,19 @@
+---
+description: Commit & branch discipline — atomic green commits, conventional messages, never push or merge to main
+alwaysApply: true
+---
+
+# Commit & branch discipline (binding)
+
+Enforced locally by `scripts/hooks/` (pre-commit, commit-msg, pre-push) and authoritatively
+by server-side branch protection on `main`.
+
+- **One atomic, green commit per logical sub-step.** Never bundle unrelated work.
+- **Every commit is green** — the test suite passes before committing. Never use `--no-verify`
+  to dodge a red tree.
+- **Conventional, milestone-scoped messages:** `feat(mN): …`, `test(mN): …`, `docs(mN): …`
+  (also `fix|chore|refactor|perf|build|ci`).
+- **One branch per milestone** (`feat/mN-…`). Never commit on `main`.
+- **NEVER push. NEVER merge to `main`.** Pushes and merges are a human action at the
+  milestone review gate. End each session with everything committed on the milestone
+  branch and nothing pushed.

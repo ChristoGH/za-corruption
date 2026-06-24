@@ -1,0 +1,27 @@
+#!/bin/sh
+# Commit discipline (CLAUDE.md): never commit on main; every commit is green; small commits.
+# NOTE: --no-verify bypasses this hook. The authoritative gate is server-side branch
+# protection on `main` (require PR + passing CI). This hook is fast local feedback.
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo DETACHED)
+case "$branch" in
+  main|master)
+    echo "✗ refusing to commit directly on '$branch' — work on a feat/mN-… branch (never commit to main)."
+    exit 1;;
+esac
+
+# Soft size nudge — prefer one atomic sub-step per commit (warn, don't block).
+lines=$(git diff --cached --numstat | awk '{a+=$1+$2} END{print a+0}')
+files=$(git diff --cached --name-only | wc -l | tr -d ' ')
+if [ "${lines:-0}" -gt 400 ] || [ "${files:-0}" -gt 15 ]; then
+  echo "⚠ large commit ($files files, $lines lines changed) — policy prefers one atomic sub-step per commit."
+fi
+
+# Green gate — the test suite must pass. Keep this FAST; full/slow suites belong in CI.
+echo "pre-commit: running test gate…"
+if ! uv run pytest packages/ingestion/tests -q -x >/tmp/precommit_tests.log 2>&1; then
+  tail -25 /tmp/precommit_tests.log
+  echo "✗ tests failing — every commit must be green (policy). Fix, don't --no-verify."
+  exit 1
+fi
+echo "✓ tests green"

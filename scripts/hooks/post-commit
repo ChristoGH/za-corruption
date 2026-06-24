@@ -1,0 +1,8 @@
+#!/bin/sh
+# Auto-sync curated project docs into the Obsidian vault after each commit.
+# Non-fatal by design: a sync failure (vault missing, etc.) must never block a commit.
+# Install once:  git config core.hooksPath scripts/hooks
+root="$(git rev-parse --show-toplevel)" || exit 0
+cd "$root" || exit 0
+python3 scripts/sync_to_vault.py >/dev/null 2>&1 || true
+exit 0
