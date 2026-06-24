@@ -208,7 +208,8 @@ MERGE (cl:Claim {claim_id: row.claim_id})
                cl.certainty = row.certainty,
                cl.has_unresolved_subject = row.has_unresolved_subject,
                cl.unresolved_subjects = row.unresolved_subjects,
-               cl.unresolved_objects = row.unresolved_objects
+               cl.unresolved_objects = row.unresolved_objects,
+               cl.speaker_unresolved = row.speaker_unresolved
 MERGE (sp:Person {name: row.speaker_name})
 MERGE (cl)-[:STATED_BY]->(sp)
 MERGE (cl)-[:SUPPORTED_BY]->(ck)
@@ -325,10 +326,22 @@ def build_claim_rows(
 
     for claim in extraction.claims:
         speaker = canonical_store.lookup(claim.speaker, entity_type="person")
-        if speaker is None:
+        if speaker is not None:
+            speaker_id, speaker_name, speaker_unresolved = (
+                speaker.entity_id, speaker.name, False)
+        else:
+            # ADR 0007 — extend policy-(b) to speakers: rather than DROP a claim whose
+            # speaker label isn't in the seed (a real but uncanonicalised speaker, e.g.
+            # "WITNESS C", "BRIGADIER MATJENG"), keep it with a raw STATED_BY and flag it.
+            # Recovers the ~34% speaker-unresolved corpus-wide. Only a genuinely empty
+            # label is still dropped.
+            raw_label = (claim.speaker or "").strip()
             stats.claims_speaker_unresolved += 1
-            logger.debug("claim speaker unresolved: %r", claim.speaker)
-            continue
+            if not raw_label:
+                logger.debug("claim has no speaker label — dropping")
+                continue
+            speaker_id, speaker_name, speaker_unresolved = (
+                "raw:" + raw_label.upper(), raw_label, True)
         span = find_quote(chunk.text, claim.quote)
         if span is None:
             stats.claims_quote_unrecovered += 1
@@ -338,7 +351,7 @@ def build_claim_rows(
             )
             continue
         start, end = span
-        cid = claim_key(chunk.chunk_id, speaker.entity_id, claim.predicate, start, end)
+        cid = claim_key(chunk.chunk_id, speaker_id, claim.predicate, start, end)
 
         unresolved_subjects: list[str] = []
         unresolved_objects: list[str] = []
@@ -381,7 +394,8 @@ def build_claim_rows(
             "text":                   claim.predicate,
             "attribution":            claim.speaker,
             "extraction_method":      extraction_method,
-            "speaker_name":           speaker.name,
+            "speaker_name":           speaker_name,
+            "speaker_unresolved":     speaker_unresolved,
             "quote":                  claim.quote,
             "quote_start":            start,
             "quote_end":              end,

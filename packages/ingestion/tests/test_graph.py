@@ -544,13 +544,17 @@ def test_claim_has_stated_by_supported_by_and_matches_chunk(
     assert row["extraction_method"] == _METHOD
 
 
-def test_claim_speaker_unresolved_is_skipped_and_counted(canon: CanonicalStore):
+def test_claim_speaker_unresolved_loads_raw_and_counted(canon: CanonicalStore):
+    # ADR 0007: an unseeded but non-empty speaker label is kept with a raw STATED_BY,
+    # not dropped — so a third of the corpus is no longer lost.
     chunk = claim_chunk()
     ext = make_extraction([make_claim(speaker="UNKNOWN SPEAKER ZZZ")])
     rows, mentions, stats = build_claim_rows(chunk, ext, canon, extraction_method=_METHOD)
-    assert rows == []
-    assert stats.claims_written == 0
-    assert stats.claims_speaker_unresolved == 1
+    assert len(rows) == 1
+    assert stats.claims_written == 1
+    assert stats.claims_speaker_unresolved == 1          # still counted
+    assert rows[0]["speaker_unresolved"] is True
+    assert rows[0]["speaker_name"] == "UNKNOWN SPEAKER ZZZ"
 
 
 def test_claim_quote_unrecoverable_is_skipped_and_counted(canon: CanonicalStore):
