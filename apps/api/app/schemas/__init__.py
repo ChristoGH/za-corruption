@@ -1,1 +1,1 @@
-"""Pydantic response schemas — one per endpoint."""
+"""Pydantic response schemas - one per endpoint."""

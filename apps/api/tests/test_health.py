@@ -1,4 +1,4 @@
-"""GET /health — degrades gracefully, never 500s when a store is down."""
+"""GET /health - degrades gracefully, never 500s when a store is down."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def test_health_degrades_when_qdrant_down(client_factory):
         neo4j=FakeNeo4jStore(ping_ok=True),
     )
     resp = client.get("/health")
-    # never 500 — the page stays answerable.
+    # never 500 - the page stays answerable.
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "degraded"

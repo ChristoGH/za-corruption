@@ -1,6 +1,6 @@
 """Dependency providers (the DI seam tests override).
 
-Each provider reuses a shaped class from commission_ingestion — no second
+Each provider reuses a shaped class from commission_ingestion - no second
 embedder, no hand-rolled store (invariant 2). Imports are lazy so importing the
 app needs neither torch nor a live store; the heavy embedder is only built when
 /search is actually called. Providers are cached: the BGE model and the store
@@ -27,7 +27,7 @@ def get_qdrant_store() -> Any:
 
 @lru_cache(maxsize=1)
 def get_embedder() -> Any:
-    # Loads sentence-transformers (torch) — built once, on first /search only.
+    # Loads sentence-transformers (torch) - built once, on first /search only.
     from commission_ingestion.vector.embedder import BgeSmallEmbedder
 
     return BgeSmallEmbedder()

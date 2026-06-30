@@ -1,4 +1,4 @@
-"""GET /claim/{claim_id} — one claim's full provenance."""
+"""GET /claim/{claim_id} - one claim's full provenance."""
 
 from __future__ import annotations
 

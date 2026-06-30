@@ -1,4 +1,4 @@
-"""GET /search — semantic search over the shared Qdrant collection."""
+"""GET /search - semantic search over the shared Qdrant collection."""
 
 from __future__ import annotations
 

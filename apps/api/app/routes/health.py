@@ -1,4 +1,4 @@
-"""GET /health — cheap liveness pings for both stores. Never 500s the page.
+"""GET /health - cheap liveness pings for both stores. Never 500s the page.
 
 A store that is down is reported "down" (status "degraded"), not raised: the
 health endpoint must stay answerable even when Qdrant or Neo4j is unreachable.

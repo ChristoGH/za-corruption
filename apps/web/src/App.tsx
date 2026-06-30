@@ -49,7 +49,7 @@ function MentionsBlock(props: { graph: ChunkGraph }) {
     <section className="mentions">
       <h3>
         Mentioned here{" "}
-        <span className="badge badge-mention">mentioned — a lead, not a finding</span>
+        <span className="badge badge-mention">mentioned: a lead, not a finding</span>
       </h3>
       {groups.map(([label, names]) => (
         <div key={label} className="mention-group">

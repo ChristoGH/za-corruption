@@ -1,4 +1,4 @@
-"""GET /chunk/{chunk_id}/graph — one chunk's evidence neighborhood."""
+"""GET /chunk/{chunk_id}/graph - one chunk's evidence neighborhood."""
 
 from __future__ import annotations
 

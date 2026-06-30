@@ -1,4 +1,4 @@
-"""GET /search — provenance on every hit; CLI-mirrored query shaping."""
+"""GET /search - provenance on every hit; CLI-mirrored query shaping."""
 
 from __future__ import annotations
 

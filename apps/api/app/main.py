@@ -2,7 +2,7 @@
 
 Four endpoints, no more: /health, /search, /chunk/{id}/graph, /claim/{id}.
 CORS is restricted to the configured web origin. The app owns no ingestion
-logic — every route queries the commission_ingestion stores read-only.
+logic - every route queries the commission_ingestion stores read-only.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ def create_app() -> FastAPI:
         description=(
             "Read-only search and evidence-graph surface over the Zondo and "
             "Madlanga commission transcripts. Allegations in the public record, "
-            "attributed to named speakers under oath — not findings of fact."
+            "attributed to named speakers under oath, not findings of fact."
         ),
     )
     app.add_middleware(

@@ -1,4 +1,4 @@
-"""GET /chunk/{id}/graph — mentions and claims stay distinct; both spines work."""
+"""GET /chunk/{id}/graph - mentions and claims stay distinct; both spines work."""
 
 from __future__ import annotations
 

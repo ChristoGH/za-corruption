@@ -1,4 +1,4 @@
-"""GET /claim/{id} — full provenance; attribution never dropped."""
+"""GET /claim/{id} - full provenance; attribution never dropped."""
 
 from __future__ import annotations
 
