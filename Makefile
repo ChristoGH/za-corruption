@@ -10,7 +10,7 @@ install:
 	uv sync --all-packages --all-extras
 
 test:
-	uv run pytest packages/ingestion/tests -v
+	uv run pytest packages/ingestion/tests apps/api/tests -v
 
 browsers:
 	uv run playwright install chromium

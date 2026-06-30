@@ -18,8 +18,12 @@ if [ "${lines:-0}" -gt 400 ] || [ "${files:-0}" -gt 15 ]; then
 fi
 
 # Green gate — the test suite must pass. Keep this FAST; full/slow suites belong in CI.
+# apps/api/tests are included only when the directory exists (M5+), so the hook
+# stays green on branches that predate the public surface.
 echo "pre-commit: running test gate…"
-if ! uv run pytest packages/ingestion/tests -q -x >/tmp/precommit_tests.log 2>&1; then
+api_tests=""
+[ -d apps/api/tests ] && api_tests="apps/api/tests"
+if ! uv run pytest packages/ingestion/tests $api_tests -q -x >/tmp/precommit_tests.log 2>&1; then
   tail -25 /tmp/precommit_tests.log
   echo "✗ tests failing — every commit must be green (policy). Fix, don't --no-verify."
   exit 1
