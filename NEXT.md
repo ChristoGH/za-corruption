@@ -35,6 +35,9 @@
 - Speaker-drop: RESOLVED via ADR 0007 (raw `:Person` speakers, flagged `speaker_unresolved`).
 
 ## Map
+- `docs/track-reconciliation.md` — the two tracks (original M0–M6 plan vs post-M4 analytical
+  work), where they collide, and why Series B depends on the unbuilt M6 review gate
+- `plans/m5-public-surface.md` — the M5 build prompt (apps/api + apps/web; the safe lane)
 - `METHOD.md` — public methodology (the "open to scrutiny" front door)
 - `plans/staying-current-pipeline.md` — ingest latest + video-only + publish-the-delta
 - `plans/evidentiary-completeness-track.md` — the evidentiary framework / LinkedIn Series B
