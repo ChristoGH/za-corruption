@@ -51,6 +51,9 @@ vitest.config.*.timestamp-*.mjs
 !package.json
 !tsconfig.json
 !**/fixtures/**/*.json
+# apps/web build config + lockfile (the blanket *.json above would hide them)
+!apps/web/tsconfig.node.json
+!apps/web/package-lock.json
 
 # Logs
 *.log

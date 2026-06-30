@@ -1,4 +1,4 @@
-.PHONY: install test browsers retrieve-discover retrieve-download docker-build docker-discover stores-up neo4j-constraints load-qdrant build-graph post-assets backup restore
+.PHONY: install test browsers retrieve-discover retrieve-download docker-build docker-discover stores-up neo4j-constraints load-qdrant build-graph post-assets backup restore api-dev web-install web-dev web-build
 
 COMMISSION ?= madlanga
 ZONDO_SOURCE ?= bootstrap
@@ -23,6 +23,19 @@ retrieve-download:
 
 stores-up:
 	docker compose up -d qdrant neo4j
+
+# ── M5 public surface (apps/api + apps/web) ──────────────────────────────────
+api-dev: stores-up
+	uv run uvicorn app.main:app --reload --app-dir apps/api
+
+web-install:
+	npm --prefix apps/web install
+
+web-dev:
+	npm --prefix apps/web run dev
+
+web-build:
+	npm --prefix apps/web run build
 
 neo4j-constraints:
 	docker compose exec -T neo4j cypher-shell -u neo4j -p "$${NEO4J_PASSWORD:-changeme}" < infra/neo4j/constraints.cypher

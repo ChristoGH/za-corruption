@@ -1,0 +1,66 @@
+:root {
+  --mention: #2563eb;
+  --claim: #b91c1c;
+  --raw: #b45309;
+  --bg: #f8fafc;
+  --line: #e2e8f0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0f172a;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+
+.app { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+
+header h1 { font-size: 1.25rem; margin: 0.5rem 0; }
+header form { display: flex; gap: 0.5rem; }
+header input { flex: 1; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 6px; }
+header button { padding: 0.5rem 1rem; border: 0; border-radius: 6px; background: #0f172a; color: #fff; cursor: pointer; }
+
+.error { background: #fef2f2; color: var(--claim); border: 1px solid #fecaca; padding: 0.5rem 0.75rem; border-radius: 6px; margin: 0.5rem 0; }
+
+main { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+
+.results { display: flex; flex-direction: column; gap: 0.5rem; }
+.result-row { text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem; cursor: pointer; display: flex; flex-direction: column; gap: 0.25rem; }
+.result-row.active { border-color: #0f172a; box-shadow: 0 0 0 1px #0f172a; }
+.result-meta { display: flex; gap: 0.75rem; font-size: 0.8rem; color: #475569; flex-wrap: wrap; }
+.result-meta .commission { font-weight: 600; text-transform: uppercase; }
+.result-meta .flag { color: var(--raw); }
+.speakers { font-size: 0.8rem; color: #334155; font-weight: 600; }
+.snippet { font-size: 0.9rem; }
+.source { font-size: 0.8rem; color: var(--mention); width: fit-content; }
+
+.detail { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem; }
+
+/* Mentions: blue, low-key. A lead, not a finding. */
+.mentions { border-left: 3px solid var(--mention); padding-left: 0.75rem; margin-bottom: 1rem; }
+.mention-group { margin: 0.35rem 0; }
+.mention-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: #475569; }
+.mention-group ul { margin: 0.15rem 0; padding-left: 1.1rem; }
+
+/* Claims: red, card-framed, visibly distinct from mentions. */
+.claims { border-left: 3px solid var(--claim); padding-left: 0.75rem; }
+.claim-card { border: 1px solid #fecaca; background: #fff7f7; border-radius: 8px; padding: 0.6rem; margin: 0.5rem 0; cursor: pointer; }
+.claim-head { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.stated-by { font-size: 0.85rem; font-weight: 600; }
+.quote { border-left: 3px solid var(--claim); margin: 0.5rem 0; padding-left: 0.6rem; font-style: italic; }
+.predicate { font-size: 0.85rem; color: #475569; margin: 0.25rem 0; }
+
+.badge { font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.03em; }
+.badge-mention { background: #dbeafe; color: var(--mention); }
+.badge-claim { background: #fee2e2; color: var(--claim); }
+.badge-raw { background: #fef3c7; color: var(--raw); margin-left: 0.4rem; }
+
+.claim-detail { margin-top: 1rem; border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem; background: #fffbfb; }
+.claim-detail .close { float: right; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 0.2rem 0.6rem; cursor: pointer; }
+.provenance { display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.75rem; font-size: 0.85rem; margin: 0.5rem 0; }
+.provenance dt { color: #475569; }
+.provenance dd { margin: 0; }
+
+.empty { color: #94a3b8; font-size: 0.9rem; }
+
+footer { margin-top: 1.5rem; padding: 0.75rem; border-top: 1px solid var(--line); font-size: 0.8rem; color: #475569; text-align: center; }
+
+@media (max-width: 760px) { main { grid-template-columns: 1fr; } }
