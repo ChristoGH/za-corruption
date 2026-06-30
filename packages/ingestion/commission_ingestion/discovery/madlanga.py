@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections.abc import Iterator
 from datetime import date
 from urllib.parse import urlparse
 
@@ -116,10 +117,11 @@ class MadlangaDiscoveryAdapter(CommissionDiscoveryAdapter):
             items: list[dict[str, str]] = []
             try:
                 tabs_data = json.loads(raw_tabs)
-                for tab_name in ("Transcript", "Documents"):
-                    for item in tabs_data.get(tab_name, []):
-                        if isinstance(item, dict):
-                            items.append(item)
+                items = [
+                    item
+                    for item in _iter_tab_items(tabs_data)
+                    if isinstance(item, dict)
+                ]
             except json.JSONDecodeError:
                 for match in TRANSCRIPT_FILE_PDF_RE.finditer(raw_tabs):
                     items.append(
@@ -179,6 +181,28 @@ class MadlangaDiscoveryAdapter(CommissionDiscoveryAdapter):
         return records
 
 
+def _iter_tab_items(tabs_data: object) -> Iterator[dict]:
+    """Yield item dicts from a data-tabs blob, tolerant of its shape.
+
+    The site has served two shapes for the per-day data-tabs JSON: a dict keyed
+    by tab name (``{"Transcript": [...], "Documents": [...]}``) and, after a 2026
+    redesign, a list (flat items, or tab objects with nested item lists). Walk
+    either: recurse through dict values and list entries, yielding any dict that
+    looks like an item (carries ``content_url`` or ``tab_type``). Items are
+    self-describing, so grouping by key is unnecessary — ``_record_from_json_item``
+    filters each by its own ``tab_type``/``item_type``/``content_url``.
+    """
+    if isinstance(tabs_data, dict):
+        if "content_url" in tabs_data or "tab_type" in tabs_data:
+            yield tabs_data
+            return
+        for value in tabs_data.values():
+            yield from _iter_tab_items(value)
+    elif isinstance(tabs_data, list):
+        for entry in tabs_data:
+            yield from _iter_tab_items(entry)
+
+
 def _extract_blob_context(
     element: Tag, raw_tabs: str
 ) -> tuple[int | None, str | None]:
@@ -195,12 +219,8 @@ def _extract_blob_context(
 
     try:
         tabs_data = json.loads(raw_tabs)
-        for tab_items in tabs_data.values():
-            if not isinstance(tab_items, list):
-                continue
-            for item in tab_items:
-                if not isinstance(item, dict):
-                    continue
+        for item in _iter_tab_items(tabs_data):
+            if isinstance(item, dict):
                 parts.append(item.get("title", ""))
                 parts.append(item.get("content_url", ""))
     except json.JSONDecodeError:

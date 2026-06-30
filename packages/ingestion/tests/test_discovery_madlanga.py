@@ -9,6 +9,9 @@ from commission_ingestion.discovery.madlanga import (
 
 FIXTURE = Path(__file__).parent / "fixtures" / "madlanga_hearings.html"
 EMBEDDED_FIXTURE = Path(__file__).parent / "fixtures" / "madlanga_hearing_embedded.html"
+EMBEDDED_LIST_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "madlanga_hearing_embedded_list.html"
+)
 DAY109_FIXTURE = Path(__file__).parent / "fixtures" / "madlanga_hearing_day109.html"
 
 
@@ -97,6 +100,29 @@ def test_madlanga_discovery_from_anchor_fixture(monkeypatch):
 
 def test_madlanga_embedded_json_transcripts(monkeypatch):
     html = EMBEDDED_FIXTURE.read_text(encoding="utf-8")
+
+    def fake_resilient(url: str, **kwargs: object) -> str:
+        return html if "hearing.php" in url else ""
+
+    monkeypatch.setattr(
+        "commission_ingestion.discovery.madlanga.fetch_html_resilient",
+        fake_resilient,
+    )
+
+    records = MadlangaDiscoveryAdapter().discover_sources()
+    transcripts = [r for r in records if r.source_type == "transcript"]
+    assert len(transcripts) >= 1
+    t = transcripts[0]
+    assert t.document_type == "Transcript"
+    assert t.day_no == 59
+    assert t.date == "2026-02-12"
+    assert "MADLANGA_COMMISSION_RECORD_20260212.pdf" in t.url
+
+
+def test_madlanga_embedded_json_list_shape(monkeypatch):
+    # After the 2026 site redesign the per-day data-tabs JSON is a list, not a
+    # dict keyed by tab name. Discovery must still recover the transcript.
+    html = EMBEDDED_LIST_FIXTURE.read_text(encoding="utf-8")
 
     def fake_resilient(url: str, **kwargs: object) -> str:
         return html if "hearing.php" in url else ""
