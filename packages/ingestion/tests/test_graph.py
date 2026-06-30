@@ -44,24 +44,39 @@ from commission_ingestion.resolution.canonical import CanonicalEntity, Canonical
 # ─── fake driver ──────────────────────────────────────────────────────────────
 
 class _FakeResult:
+    """Mimics a neo4j Result: single() returns the first record or None."""
+
+    def __init__(self, records: list[dict] | None = None) -> None:
+        self._records = list(records or [])
+
     def single(self):
-        return None
+        return self._records[0] if self._records else None
+
+    def __iter__(self):
+        return iter(self._records)
 
 
 class _FakeTx:
-    def __init__(self) -> None:
+    def __init__(self, responses: list[tuple[str, list[dict]]] | None = None) -> None:
         self.queries: list[str] = []
         self.params: list[dict] = []
+        # (query-substring, records) pairs; first match wins. Reads return canned
+        # records; anything unmatched (every write) returns an empty result, so
+        # existing write tests are unaffected.
+        self._responses = responses or []
 
     def run(self, query: str, **params) -> _FakeResult:
         self.queries.append(query)
         self.params.append(params)
+        for needle, records in self._responses:
+            if needle in query:
+                return _FakeResult(records)
         return _FakeResult()
 
 
 class _FakeSession:
-    def __init__(self) -> None:
-        self._tx = _FakeTx()
+    def __init__(self, responses: list[tuple[str, list[dict]]] | None = None) -> None:
+        self._tx = _FakeTx(responses)
 
     @property
     def queries(self) -> list[str]:
@@ -85,10 +100,14 @@ class _FakeSession:
 
 
 class FakeDriver:
-    """Captures all Cypher calls — no network, no Neo4j process."""
+    """Captures all Cypher calls — no network, no Neo4j process.
 
-    def __init__(self) -> None:
-        self._session = _FakeSession()
+    Pass `responses` (query-substring → records) to drive the read methods;
+    omit it and every run() returns an empty result (the write-test default).
+    """
+
+    def __init__(self, responses: list[tuple[str, list[dict]]] | None = None) -> None:
+        self._session = _FakeSession(responses)
 
     def session(self, **_kwargs) -> _FakeSession:
         return self._session
@@ -694,3 +713,147 @@ def test_claim_writer_returns_per_type_counts(store: Neo4jStore, canon: Canonica
     assert stats.stated_by_edges == 1
     assert stats.supported_by_edges == 1
     assert stats.mentions_edges == 1
+
+
+# ─── M5 read surface: chunk_neighborhood / claim_detail / ping ────────────────
+
+def _neighborhood_record(**overrides) -> dict:
+    record = {
+        "chunk": {
+            "chunk_id": "ck-1", "text": "Testimony.", "page_start": 12,
+            "page_end": 13, "commission_slug": "madlanga", "day_no": 3,
+            "chunk_index": 0,
+        },
+        "document": {
+            "sha256": _SHA, "source_url": "https://example.org/day3.pdf",
+            "filename": "day3.pdf", "authoritative": True,
+            "document_type": "Transcript", "commission_slug": "madlanga",
+        },
+        "hearing": {"day_no": 3, "date": "2025-09-19"},
+        "persons": ["Justice Mbuyiseli Madlanga"],
+        "orgs": ["South African Police Service"],
+        "places": ["Johannesburg"],
+        "speakers": ["Justice Mbuyiseli Madlanga"],
+        "claims": [{
+            "claim_id": "cl-1", "status": "alleged",
+            "quote": "He told me to pay.", "text": "alleges that X paid Y.",
+            "speaker_unresolved": False, "speaker": "Adv Sesi Baloyi SC",
+        }],
+    }
+    record.update(overrides)
+    return record
+
+
+def test_chunk_neighborhood_separates_mentions_and_claims():
+    store = Neo4jStore(driver=FakeDriver([("AS persons", [_neighborhood_record()])]))
+    result = store.chunk_neighborhood("ck-1")
+    # invariant 4: mentions and claims are distinct, separately-typed fields.
+    assert "mentions" in result and "claims" in result
+    assert result["mentions"]["person"] == ["Justice Mbuyiseli Madlanga"]
+    assert result["mentions"]["org"] == ["South African Police Service"]
+    assert result["mentions"]["place"] == ["Johannesburg"]
+    assert [c["claim_id"] for c in result["claims"]] == ["cl-1"]
+    # the chunk's claims are not folded into the mentions lists.
+    assert "cl-1" not in result["mentions"]["person"]
+
+
+def test_chunk_neighborhood_claims_carry_join_key_and_status():
+    store = Neo4jStore(driver=FakeDriver([("AS persons", [_neighborhood_record()])]))
+    claim = store.chunk_neighborhood("ck-1")["claims"][0]
+    assert claim["claim_id"] == "cl-1"        # the join key for claim_detail
+    assert claim["status"] == "alleged"        # stored, not synthesised
+    assert claim["speaker"] == "Adv Sesi Baloyi SC"
+
+
+def test_chunk_neighborhood_returns_none_for_missing_chunk():
+    # MATCH (ck) fails -> empty result -> single() None -> None.
+    store = Neo4jStore(driver=FakeDriver())
+    assert store.chunk_neighborhood("does-not-exist") is None
+
+
+def test_chunk_neighborhood_handles_bootstrap_null_pages():
+    bootstrap = _neighborhood_record(
+        chunk={
+            "chunk_id": "ck-b", "text": "Bootstrap testimony.",
+            "page_start": None, "page_end": None, "commission_slug": "zondo",
+            "day_no": 1, "chunk_index": 0,
+        },
+        document={
+            "sha256": _SHA, "source_url": "https://example.org/zondo-day1.txt",
+            "filename": "zondo-day1.txt", "authoritative": False,
+            "document_type": "Transcript", "commission_slug": "zondo",
+        },
+    )
+    store = Neo4jStore(driver=FakeDriver([("AS persons", [bootstrap])]))
+    result = store.chunk_neighborhood("ck-b")
+    assert result["chunk"]["page_start"] is None
+    assert result["document"]["authoritative"] is False
+    assert result["document"]["source_url"].endswith("zondo-day1.txt")
+
+
+def _claim_record(**overrides) -> dict:
+    record = {
+        "claim": {
+            "claim_id": "cl-1", "status": "alleged",
+            "quote": "He told me to pay the money.",
+            "text": "alleges that the minister directed the payment.",
+            "certainty": "high", "attribution": "first_person",
+            "speaker_unresolved": False, "has_unresolved_subject": False,
+            "unresolved_subjects": [], "unresolved_objects": [],
+        },
+        "speaker": "Adv Sesi Baloyi SC",
+        "chunk": {
+            "chunk_id": "ck-1", "day_no": 3, "page_start": 12,
+            "page_end": 13, "commission_slug": "madlanga",
+        },
+        "source_url": "https://example.org/day3.pdf",
+        "mentions": [
+            {"name": "The Minister", "role": "subject", "labels": ["Person"]},
+        ],
+    }
+    record.update(overrides)
+    return record
+
+
+def test_claim_detail_full_provenance():
+    store = Neo4jStore(driver=FakeDriver([("AS source_url", [_claim_record()])]))
+    detail = store.claim_detail("cl-1")
+    assert detail["claim"]["status"] == "alleged"     # stored status
+    assert detail["claim"]["quote"].startswith("He told me")
+    assert detail["speaker"] == "Adv Sesi Baloyi SC"   # STATED_BY, never dropped
+    assert detail["source_url"] == "https://example.org/day3.pdf"
+    assert detail["chunk"]["day_no"] == 3
+    assert detail["mentions"][0]["role"] == "subject"
+
+
+def test_claim_detail_preserves_raw_speaker_flag():
+    raw = _claim_record(
+        claim={
+            "claim_id": "cl-2", "status": "alleged", "quote": "I saw it.",
+            "text": "alleges presence.", "certainty": "medium",
+            "attribution": "first_person", "speaker_unresolved": True,
+            "has_unresolved_subject": False, "unresolved_subjects": [],
+            "unresolved_objects": [],
+        },
+        speaker="WITNESS C",
+    )
+    store = Neo4jStore(driver=FakeDriver([("AS source_url", [raw])]))
+    detail = store.claim_detail("cl-2")
+    # ADR 0007: attribution is present-but-uncanonicalised, never dropped.
+    assert detail["claim"]["speaker_unresolved"] is True
+    assert detail["speaker"] == "WITNESS C"
+
+
+def test_claim_detail_returns_none_for_missing_claim():
+    store = Neo4jStore(driver=FakeDriver())
+    assert store.claim_detail("nope") is None
+
+
+def test_ping_true_when_neo4j_answers():
+    store = Neo4jStore(driver=FakeDriver([("RETURN 1 AS ok", [{"ok": 1}])]))
+    assert store.ping() is True
+
+
+def test_ping_false_when_no_record():
+    store = Neo4jStore(driver=FakeDriver())
+    assert store.ping() is False

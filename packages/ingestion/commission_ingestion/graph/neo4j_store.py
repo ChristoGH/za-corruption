@@ -188,6 +188,59 @@ _MENTIONED_IN_BY_TYPE: dict[str, str] = {
 # Idempotency check — chunk nodes store doc_sha256 for a fast count.
 _COUNT_CHUNKS = "MATCH (c:Chunk {doc_sha256: $sha256}) RETURN count(c) AS n"
 
+# ─── read queries (M5 — the public read surface) ──────────────────────────────
+#
+# These are the ONLY reads the apps/api layer uses; all its Cypher lives here so
+# the API stays a thin adapter (no hand-rolled driver). They are read-only.
+#
+# The chunk neighborhood is path-independent: page provenance is read straight
+# off the :Chunk node (page_start/page_end, nullable on bootstrap docs) and the
+# :Document is matched by the sha256 the chunk carries, so the query works for
+# BOTH the paged spine (Document→Page→Chunk) and the bootstrap spine
+# (Document→Chunk, null pages) without assuming a :Page exists. Pattern
+# comprehensions yield [] when nothing matches and avoid a cartesian product,
+# so mentions/speakers/claims never cross-multiply. Mentions and claims stay in
+# SEPARATE fields (the Mention != Claim spine). status is read as stored, never
+# hardcoded; speaker_unresolved flags a raw, uncanonicalised STATED_BY (ADR 0007).
+_READ_CHUNK_NEIGHBORHOOD = """\
+MATCH (ck:Chunk {chunk_id: $chunk_id})
+OPTIONAL MATCH (d:Document {sha256: ck.doc_sha256})
+OPTIONAL MATCH (h:HearingDay)-[:HAS_DOCUMENT]->(d)
+RETURN ck { .chunk_id, .text, .page_start, .page_end, .commission_slug,
+            .day_no, .chunk_index } AS chunk,
+       d { .sha256, .source_url, .filename, .authoritative,
+           .document_type, .commission_slug } AS document,
+       h { .day_no, .date } AS hearing,
+       [ (per:Person)-[:MENTIONED_IN]->(ck) | per.name ] AS persons,
+       [ (org:Organisation)-[:MENTIONED_IN]->(ck) | org.name ] AS orgs,
+       [ (plc:Place)-[:MENTIONED_IN]->(ck) | plc.name ] AS places,
+       [ (sp:Person)-[:SPOKE_IN]->(ck) | sp.name ] AS speakers,
+       [ (cl:Claim)-[:SUPPORTED_BY]->(ck) |
+            cl { .claim_id, .status, .quote, .text, .speaker_unresolved,
+                 speaker: head([ (cl)-[:STATED_BY]->(p:Person) | p.name ]) } ] AS claims
+"""
+
+# One claim's full provenance: quote/text/status/certainty/attribution, the
+# STATED_BY speaker (raw or canonical), the SUPPORTED_BY chunk with its source
+# link (nullable page_start for bootstrap docs), and the MENTIONS entities.
+_READ_CLAIM_DETAIL = """\
+MATCH (cl:Claim {claim_id: $claim_id})
+OPTIONAL MATCH (cl)-[:STATED_BY]->(sp:Person)
+OPTIONAL MATCH (cl)-[:SUPPORTED_BY]->(ck:Chunk)
+OPTIONAL MATCH (d:Document {sha256: ck.doc_sha256})
+RETURN cl { .claim_id, .status, .quote, .text, .certainty, .attribution,
+            .speaker_unresolved, .has_unresolved_subject,
+            .unresolved_subjects, .unresolved_objects } AS claim,
+       sp.name AS speaker,
+       ck { .chunk_id, .day_no, .page_start, .page_end, .commission_slug } AS chunk,
+       d.source_url AS source_url,
+       [ (cl)-[m:MENTIONS]->(e) | { name: e.name, role: m.role, labels: labels(e) } ]
+            AS mentions
+"""
+
+# Cheap liveness ping for /health — never writes.
+_PING = "RETURN 1 AS ok"
+
 
 # ─── claim layer (M4) ─────────────────────────────────────────────────────────
 #
@@ -457,6 +510,71 @@ class Neo4jStore:
                 lambda tx: tx.run(_COUNT_CHUNKS, sha256=doc_sha256).single()
             )
             return record["n"] if record else 0
+
+    # ── read surface (M5) ─────────────────────────────────────────────────────
+
+    def ping(self) -> bool:
+        """Cheap read-only liveness check for /health. True iff Neo4j answers."""
+        with self._driver.session() as session:
+            record = session.execute_read(
+                lambda tx: tx.run(_PING).single()
+            )
+            return bool(record and record["ok"] == 1)
+
+    def chunk_neighborhood(self, chunk_id: str) -> dict[str, Any] | None:
+        """Read one chunk's graph neighborhood, or None if the chunk is absent.
+
+        Returns the chunk + its spine (document, hearing) and, in SEPARATE
+        fields, the entities MENTIONED_IN the chunk (grouped Person/org/place —
+        leads) and the claims SUPPORTED_BY it (attributed testimony). page_start/
+        page_end are nullable (bootstrap docs have no :Page). Each claim carries
+        its claim_id (the join key for claim_detail), stored status, speaker, and
+        speaker_unresolved flag. Mentions are never merged into claims.
+        """
+        with self._driver.session() as session:
+            record = session.execute_read(
+                lambda tx: tx.run(
+                    _READ_CHUNK_NEIGHBORHOOD, chunk_id=chunk_id
+                ).single()
+            )
+        if record is None or record["chunk"] is None:
+            return None
+        return {
+            "chunk": record["chunk"],
+            "document": record["document"],
+            "hearing": record["hearing"],
+            "mentions": {
+                "person": record["persons"],
+                "org": record["orgs"],
+                "place": record["places"],
+            },
+            "speakers": record["speakers"],
+            "claims": record["claims"],
+        }
+
+    def claim_detail(self, claim_id: str) -> dict[str, Any] | None:
+        """Read one claim's full provenance, or None if the claim is absent.
+
+        Surfaces the stored status (never synthesised), the STATED_BY speaker,
+        the SUPPORTED_BY chunk with its official source_url and (nullable) page,
+        and the MENTIONS entities. The quote is the ground truth; text (predicate
+        prose) is secondary.
+        """
+        with self._driver.session() as session:
+            record = session.execute_read(
+                lambda tx: tx.run(
+                    _READ_CLAIM_DETAIL, claim_id=claim_id
+                ).single()
+            )
+        if record is None or record["claim"] is None:
+            return None
+        return {
+            "claim": record["claim"],
+            "speaker": record["speaker"],
+            "chunk": record["chunk"],
+            "source_url": record["source_url"],
+            "mentions": record["mentions"],
+        }
 
     # ── spine ─────────────────────────────────────────────────────────────────
 
