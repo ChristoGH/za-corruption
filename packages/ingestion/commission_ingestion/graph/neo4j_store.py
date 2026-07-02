@@ -111,6 +111,8 @@ MERGE (ck:Chunk {chunk_id: row.chunk_id})
   ON CREATE SET ck.text = row.text,
                ck.page_start = row.page_start,
                ck.page_end = row.page_end,
+               ck.time_start = row.time_start,
+               ck.time_end = row.time_end,
                ck.speakers = row.speakers,
                ck.chunk_index = row.chunk_index,
                ck.doc_sha256 = row.doc_sha256,
@@ -140,6 +142,8 @@ MERGE (ck:Chunk {chunk_id: row.chunk_id})
   ON CREATE SET ck.text = row.text,
                ck.page_start = row.page_start,
                ck.page_end = row.page_end,
+               ck.time_start = row.time_start,
+               ck.time_end = row.time_end,
                ck.speakers = row.speakers,
                ck.chunk_index = row.chunk_index,
                ck.doc_sha256 = row.doc_sha256,
@@ -206,8 +210,8 @@ _READ_CHUNK_NEIGHBORHOOD = """\
 MATCH (ck:Chunk {chunk_id: $chunk_id})
 OPTIONAL MATCH (d:Document {sha256: ck.doc_sha256})
 OPTIONAL MATCH (h:HearingDay)-[:HAS_DOCUMENT]->(d)
-RETURN ck { .chunk_id, .text, .page_start, .page_end, .commission_slug,
-            .day_no, .chunk_index } AS chunk,
+RETURN ck { .chunk_id, .text, .page_start, .page_end, .time_start, .time_end,
+            .commission_slug, .day_no, .chunk_index } AS chunk,
        d { .sha256, .source_url, .filename, .authoritative,
            .document_type, .commission_slug } AS document,
        h { .day_no, .date } AS hearing,
@@ -232,7 +236,8 @@ RETURN cl { .claim_id, .status, .quote, .text, .certainty, .attribution,
             .speaker_unresolved, .has_unresolved_subject,
             .unresolved_subjects, .unresolved_objects } AS claim,
        sp.name AS speaker,
-       ck { .chunk_id, .day_no, .page_start, .page_end, .commission_slug } AS chunk,
+       ck { .chunk_id, .day_no, .page_start, .page_end, .time_start, .time_end,
+            .commission_slug } AS chunk,
        d.source_url AS source_url,
        [ (cl)-[m:MENTIONS]->(e) | { name: e.name, role: m.role, labels: labels(e) } ]
             AS mentions
@@ -608,6 +613,8 @@ class Neo4jStore:
                 "text":            chunk.text,
                 "page_start":      chunk.page_start,
                 "page_end":        chunk.page_end,
+                "time_start":      chunk.time_start,
+                "time_end":        chunk.time_end,
                 "speakers":        chunk.speakers,
             }
             if source.authoritative:
