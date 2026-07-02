@@ -107,6 +107,11 @@ def run_downloads(
         if record.downloaded and not force:
             stats.skipped += 1
             continue
+        if record.source_type == "video":
+            # Video sources are ingested via `ingest-video` (caption fetch),
+            # never by HTTP download of the page URL.
+            stats.skipped += 1
+            continue
         try:
             updated = download_source(
                 record,

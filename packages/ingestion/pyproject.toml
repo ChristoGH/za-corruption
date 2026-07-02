@@ -37,6 +37,7 @@ load-qdrant = "commission_ingestion.cli.load_qdrant:run_cli"
 search-corpus = "commission_ingestion.cli.search:run_cli"
 extract-corpus = "commission_ingestion.cli.extract_corpus:run_cli"
 build-graph = "commission_ingestion.cli.build_graph:run_cli"
+ingest-video = "commission_ingestion.cli.ingest_video:run_cli"
 cross-model-eval = "commission_ingestion.cli.cross_model_eval:run_cli"
 
 [tool.hatch.build.targets.wheel]

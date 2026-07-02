@@ -59,6 +59,10 @@ MONTH_NAME_TO_NUMBER = {
     "december": 12,
 }
 
+YOUTUBE_URL_RE = re.compile(
+    r"(?:youtube\.com/(?:watch|live|embed|shorts)|youtu\.be/)", re.IGNORECASE
+)
+
 TRANSCRIPT_FILE_PDF_RE = re.compile(
     r'"tab_type":"Transcript"[^}]*"item_type":"file"[^}]*"content_url":"([^"]+\.pdf)"',
     re.IGNORECASE,
@@ -245,6 +249,29 @@ def _record_from_json_item(
     item_type = item.get("item_type", "")
     tab_type = item.get("tab_type", "")
     title = item.get("title", "")
+
+    if YOUTUBE_URL_RE.search(content_url) or tab_type in ("Videos", "Video"):
+        # Hearing-day video (livestream link). Not an official document:
+        # authoritative=false; captions are fetched later by ingest-video.
+        if not YOUTUBE_URL_RE.search(content_url):
+            return None
+        day_no, date_str = _extract_day_and_date(f"{title} {content_url}", "")
+        if day_no is None:
+            day_no = blob_day
+        if date_str is None:
+            date_str = blob_date
+        return SourceRecord(
+            commission_slug="madlanga",
+            commission_name=commission_name,
+            authoritative=False,
+            source_type="video",
+            document_type="Video",
+            title=title or content_url,
+            day_no=day_no,
+            date=date_str,
+            url=absolute_url(BASE_URL, content_url),
+            source_page_url=page_url,
+        )
 
     url = canonical_url(absolute_url(BASE_URL, content_url))
     filename = urlparse(url).path.rsplit("/", 1)[-1]
