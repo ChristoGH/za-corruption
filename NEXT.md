@@ -5,32 +5,45 @@
 > Vault hub: `knowledge-vault/10-Projects/Commission Intelligence.md`
 
 **Project:** Commission Intelligence — Madlanga evidence graph
-**Updated:** 2026-06-23
+**Updated:** 2026-07-02
 
 ## Where it stands
-- **Corpus loaded:** 14,783 chunks, 49,068 claims extracted (Haiku); **46,546 claims loaded**
-  into Neo4j after the raw-speaker fallback (ADR 0007) recovered the 34% drop.
-- **Hinge published.** Series A Post #2 is **LIVE on LinkedIn** (Matlala 62/106 days; Senona &
-  Sibiya flagged *contested*). Visual: `linkedin/matlala_live_cosmograph.html`.
-- **Method is now documented** for public scrutiny: `METHOD.md`.
+- **Corpus loaded:** 49,068 claims extracted (Haiku); **~46,546 loaded** into Neo4j after the
+  raw-speaker fallback (ADR 0007) recovered the 34% drop. Qdrant parity **confirmed live:
+  17,149 madlanga points** (up from the old 14,783 after the +18 registry records this cycle).
+- **M5 public surface BUILT** on `feat/m5-public-surface` (M0–M5 now feature-complete). Thin
+  read-only FastAPI (`apps/api`) + React (`apps/web`) over the stores; new `Neo4jStore` reads
+  (`chunk_neighborhood`, `claim_detail`, `ping`). `make test` green (168 pass / 1 skip).
+  Spec + review history: `plans/m5-public-surface.md`.
+- **M5 live demo — search leg PROVEN.** Against live stores, `/search "disbanding of the task
+  team"` returns real hits with full provenance (Sibiya day 63, Chair day 3, Mkhwanazi day 2;
+  scores ~0.76–0.78). Blocker found + fixed: the `vector` extra (sentence-transformers/torch)
+  was not installed, so `/search` 500'd until `uv pip install "sentence-transformers>=3.0"`.
+- **Hinge published.** Series A Post #2 LIVE on LinkedIn. Method documented: `METHOD.md`.
 - **Commit discipline enforced** (`scripts/hooks/` + CLAUDE.md): atomic green commits,
   conventional `<type>(mN)` messages, never commit to `main`, agent never pushes.
 
-## Next action (literal) — two active tracks
-1. **Stay current** (`plans/staying-current-pipeline.md`). Start now:
-   `make retrieve-discover && make retrieve-download` → parse/extract/build-graph the new days.
-   Then build `make ingest-latest`, the video-only (Whisper) path, and the "what day N added" delta.
-2. **Evidentiary framework — bring it to the fore** (`plans/evidentiary-completeness-track.md`).
-   This *is* the corroborated / uncorroborated / contested-disputed / unanswered / not-asked
-   framework. Next build: the proposition + stance layer it needs (turns deny/assert/question
-   into a real accuser-vs-defender model). This is LinkedIn Series B.
-3. Engage the published post (first comment = method link to `METHOD.md`; @-mention outlets).
-4. Optional integrity step: `scripts/validate_graph.cypher` + `make validate` (the "graph types
-   for Community" schema sweep) wired into CI.
+## Next action (literal) — close out M5, then the tracks
+Bring the branch to a clean, mergeable state at the human review gate:
+1. **Finish the M5 acceptance loop.** Confirm the graph leg on live data:
+   `curl -s "http://localhost:8000/chunk/<CID>/graph" | jq '{mentions,claims}'` → mentions and
+   claims come back as separate fields, a claim resolves to quote+status+speaker+source. Then
+   `make web-install && make web-dev` (localhost:5173) for the visual check.
+2. **Land `fix(m5)`:** declare `commission-ingestion[vector]` in `apps/api/pyproject.toml` so
+   the API cannot start without its search dependency (this is the gap the demo exposed).
+3. **Human review gate → merge** `feat/m5-public-surface` to `main` (human, not the agent).
+4. **Then pick a track:** (a) Track B evidentiary layer — proposition + stance + Q&A over the
+   claim graph (`plans/evidentiary-completeness-track.md`, LinkedIn Series B); or
+   (b) stay-current ingest (`plans/staying-current-pipeline.md`). Track B needs the M6 review
+   gate before any named-person output ships — see `docs/track-reconciliation.md`.
 
 ## Open / don't-forget
-- Qdrant load parity still unverified: `curl -s localhost:6333/collections/commission_transcripts | jq '.result.points_count'` (expect ~14,783).
-- `extract_v2` predicate-prose fix (42% pronoun predicates) before public *claim-text* display.
+- Qdrant parity: CONFIRMED 17,149 (live). The old "expect ~14,783" note is stale.
+- M5 acceptance: web-UI visual pass + chunk/claim leg still to eyeball on live stores.
+- `vector` extra undeclared for `apps/api` — see next-action #2.
+- Two speaker sources, not 1:1: `/search` returns raw payload labels; `/chunk/graph` returns
+  resolved `(:Person)-[:SPOKE_IN]` names — a raw label may have no resolved Person. Expected.
+- `extract_v2` predicate-prose fix (pronoun predicates) before public *claim-text* display.
 - Neo4j memory — container stopped under load once (bump Docker RAM if it recurs).
 - Speaker-drop: RESOLVED via ADR 0007 (raw `:Person` speakers, flagged `speaker_unresolved`).
 

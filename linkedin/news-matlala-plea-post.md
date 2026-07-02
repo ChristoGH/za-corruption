@@ -18,7 +18,7 @@ But it gets better! For the officers he has now agreed to testify against, the g
 
 In my graph there are now 124 hearing days and roughly 54,000 sworn claims. The graph holds them all!
 
-
+(Matlala's guilty plea is a matter of court record. Everything concerning his co-accused remains untested allegation, not a finding of fact.)
 
 #MadlangaCommission #SouthAfrica #StateCapture #DataJournalism
 

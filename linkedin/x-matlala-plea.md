@@ -16,11 +16,9 @@ The graph accused no one - it simply maps who the sworn testimony keeps tying to
 Today that node became the state's witness.
 
 **3/**
-It still holds the useful part: for each officer he has agreed to testify against, the exact questions the commission never asked.
+It still holds the useful part: for each officer he has agreed to testify against, the exact questions the record still leaves open.
 
 124 days. ~54,000 sworn claims. One graph.
-
-Bearer 
 
 @dailymaverick @amaBhungane @News24
 
