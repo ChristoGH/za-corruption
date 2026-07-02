@@ -1,4 +1,4 @@
-.PHONY: install test browsers retrieve-discover retrieve-download docker-build docker-discover stores-up neo4j-constraints load-qdrant build-graph post-assets backup restore api-dev web-install web-dev web-build
+.PHONY: install test browsers retrieve-discover retrieve-download ingest-video docker-build docker-discover stores-up neo4j-constraints load-qdrant build-graph post-assets backup restore api-dev web-install web-dev web-build
 
 COMMISSION ?= madlanga
 ZONDO_SOURCE ?= bootstrap
@@ -20,6 +20,9 @@ retrieve-discover:
 
 retrieve-download:
 	uv run retrieve-sources --commission $(COMMISSION) --zondo-source $(ZONDO_SOURCE) --download
+
+ingest-video:
+	uv run ingest-video --commission $(COMMISSION)
 
 stores-up:
 	docker compose up -d qdrant neo4j

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-CHUNK_SCHEMA_VERSION = "1.0"
+CHUNK_SCHEMA_VERSION = "1.1"
 
 
 class ChunkRecord(BaseModel):
@@ -31,9 +31,14 @@ class ChunkRecord(BaseModel):
     chunk_index: int = Field(description="0-based order of this chunk within the document")
 
     # Page provenance (1-based PDF page numbers; see docs/parse-notes.md on the
-    # printed 'Page N of M' offset).
-    page_start: int
-    page_end: int
+    # printed 'Page N of M' offset). None for page-less sources (video captions).
+    page_start: int | None = None
+    page_end: int | None = None
+
+    # Time provenance (seconds into the video) for caption-derived chunks.
+    # None for paged documents. Exactly one provenance family is set per chunk.
+    time_start: float | None = None
+    time_end: float | None = None
 
     # Speaker-aware content.
     speakers: list[str] = Field(default_factory=list)

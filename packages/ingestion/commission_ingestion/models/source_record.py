@@ -13,6 +13,7 @@ SOURCE_TYPES = frozenset(
         "notice",
         "media",
         "supporting_document",
+        "video",
     }
 )
 
@@ -36,6 +37,7 @@ DOCUMENT_TYPES = frozenset(
         "MeetingMinutes",
         "MediaStatement",
         "SupportingDocument",
+        "Video",
     }
 )
 
@@ -51,7 +53,7 @@ def _validate_http_url(value: str | None, field_name: str) -> str | None:
 
 
 class SourceRecord(BaseModel):
-    schema_version: str = "1.1"
+    schema_version: str = "1.2"
 
     commission_slug: CommissionSlug
     commission_name: str
@@ -88,6 +90,11 @@ class SourceRecord(BaseModel):
     # this record *is* the provenance of the exclusion. Excluded from stats,
     # charts, and store loads.
     superseded_by: str | None = None
+
+    # How machine-transcribed text was produced (video sources only), e.g.
+    # "youtube_auto_captions" / "youtube_manual_captions" / a whisper model id.
+    # None for official documents.
+    transcription_method: str | None = None
 
     notes: str | None = None
 

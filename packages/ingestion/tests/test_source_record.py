@@ -13,7 +13,7 @@ def test_valid_source_record():
         url="https://www.statecapture.org.za/uploads/day_1.pdf",
         source_page_url="https://www.statecapture.org.za/site/transcripts",
     )
-    assert record.schema_version == "1.1"
+    assert record.schema_version == "1.2"
     assert record.authoritative is True
     assert record.commission_slug == "zondo"
 

@@ -81,6 +81,7 @@ class SourceRegistry:
                     "sha256": record.sha256,
                     "size_bytes": record.size_bytes,
                     "content_type": record.content_type,
+                    "transcription_method": record.transcription_method,
                     "notes": record.notes,
                 }
             )

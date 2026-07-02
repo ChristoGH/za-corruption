@@ -53,6 +53,15 @@ Key invariants so it stays honest:
 This is what closes the video-only gaps the coverage map surfaces. Scope as its own milestone
 (`feat/m5-video-ingest`): yt-dlp + faster-whisper + diarisation + the Segment spine + tests.
 
+**Status (captions lane BUILT):** the fast lane ships first: `ingest-video` fetches YouTube
+caption tracks with yt-dlp (manual track preferred, else auto), parses the VTT (rolling-caption
+dedupe), and writes time-provenanced ChunkRecords (`time_start`/`time_end` seconds, pages null)
+into the normal processed dir; `load-qdrant` and `build-graph` pick them up unchanged via the
+page-less spine. Records are `source_type="video"`, `authoritative=false`, with
+`transcription_method` recorded. Discovery now also registers YouTube links on hearing.php.
+The whisper + diarisation quality lane stays open as the upgrade path (same registry records,
+same chunk shape, better text + speaker turns).
+
 ## 3. Publish-the-delta pipeline ("what the most recent day added")
 
 After a new day loads, compute and surface **the delta**, so posting stays current:
