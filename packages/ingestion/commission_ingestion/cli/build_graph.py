@@ -316,8 +316,9 @@ def run_cli(argv: list[str] | None = None) -> int:
               f"  (model: {args.extract_model})")
         print(f"  Claim MENTIONS edges:  {total.claim_mentions_edges}")
         print(f"  Claims w/ raw subject: {total.claims_with_unresolved_subject}")
+        print(f"  Claims w/ raw speaker: {total.claims_speaker_unresolved}  "
+              f"(loaded, STATED_BY uncanonicalised — ADR 0007)")
         print(f"  Claims skipped:        "
-              f"speaker_unresolved={total.claims_speaker_unresolved}, "
               f"quote_unrecovered={total.claims_quote_unrecovered}")
         print(f"  Chunks w/o extraction: {total.chunks_no_extraction}")
 

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Policy: the agent NEVER pushes and NEVER merges to main. Pushes happen only at a
+# milestone boundary, by a HUMAN, after the review gate. A human pushes intentionally
+# by setting ALLOW_PUSH=1. (--no-verify can bypass this; the real wall is GitHub branch
+# protection on `main`.)
+if [ "${ALLOW_PUSH:-}" != "1" ]; then
+  echo "✗ push blocked by policy — pushes happen only at a milestone boundary, by a human,"
+  echo "  after the review gate."
+  echo "  to push intentionally:   ALLOW_PUSH=1 git push origin <branch>"
+  exit 1
+fi

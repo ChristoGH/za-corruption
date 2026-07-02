@@ -1,0 +1,22 @@
+#!/bin/sh
+# Conventional, milestone-scoped commit messages:  <type>(mN): summary
+# types: feat fix docs test chore refactor perf build ci   ·   scope: mN (milestone)
+f="$1"
+if ! head -1 "$f" | grep -Eq '^(feat|fix|docs|test|chore|refactor|perf|build|ci)\(m[0-9]+\): .{3,}'; then
+  echo "✗ commit message must match:  <type>(mN): summary"
+  echo "  types : feat fix docs test chore refactor perf build ci"
+  echo "  scope : mN  (the milestone, e.g. m4)"
+  echo "  good  : feat(m4): add raw-speaker fallback to claim writer"
+  echo "  good  : docs(m4): record ADR 0007"
+  exit 1
+fi
+
+# No LLM artifacts: tool attribution or em dashes (policy: human, clean output).
+if grep -qiE 'co-authored-by:[[:space:]]*claude|generated with|built with (claude|ai)|🤖' "$f"; then
+  echo "✗ commit message contains tool attribution. Remove it (no 'Built with Claude' / 'Co-Authored-By' etc.)."
+  exit 1
+fi
+if grep -q '—' "$f"; then
+  echo "✗ commit message contains an em dash. Use a comma, period, or parentheses instead."
+  exit 1
+fi

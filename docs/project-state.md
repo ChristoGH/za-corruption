@@ -32,10 +32,12 @@ fact edges, ~US$5.5 spend. Two follow-ups were **deliberately deferred** (ADR 00
 gate. **`extract-corpus --all` HAS NOW BEEN RUN (2026-06-19):** full Haiku pass over all
 **14,783 chunks → 49,068 claims**, 0 dead-letters, ≈US$20 (batch + sync finish). The free
 corpus-wide **`structurally_asserted` sweep ran GREEN** (0.72% structural flags; §C triaged
-to 0 genuine misattributions), and the **`:Claim` layer is loaded corpus-wide** — 30,274
-claims (of 49,068; **16,915 dropped speaker-unresolved**, 1,877 quote-unrecovered). Remaining:
-API/web (still gated on the license/publication decision §7.3). Canned queries:
-`docs/queries.md`._
+to 0 genuine misattributions), and the **`:Claim` layer is loaded corpus-wide** — ~46,546
+claims (of 49,068) after the **raw-speaker fallback (ADR 0007)** recovered the prior 34%
+speaker-unresolved drop; only ~1,877 quote-unrecovered and genuinely empty-speaker claims
+remain out. Remaining: API/web is **built (M5: `apps/api` + `apps/web`, tests green)**, pending
+the live localhost demo at the human review gate and the license/publication decision (§7.3).
+Canned queries: `docs/queries.md`._
 
 This document is a **factual snapshot** of what exists and works today, what is
 blocked, and what is not yet built — enough to ground a comprehensive plan forward.
@@ -89,10 +91,10 @@ official site → discover → download (+SHA256) → parse PDF → speaker-awar
 | spaCy NER detection | ✅ Implemented (M3); lazy-load behind `spacy` extra; `MentionDetector` protocol for test injection | `graph/mentions.py` |
 | Graph load → Neo4j — spine + mentions | ✅ Implemented & tested (M3); idempotent MERGE; two provenance paths; SPOKE_IN + MENTIONED_IN | `graph/neo4j_store.py`, `cli/build_graph.py`; canned queries: `docs/queries.md` |
 | NLP extraction (spaCy entities/roles into Neo4j) | ✅ Implemented (M3) — spaCy detects Person/Org/Place, resolved via canonical store | `graph/mentions.py`, `graph/neo4j_store.py` |
-| **`:Claim` graph layer → Neo4j (M4)** | ✅ **Loaded corpus-wide 2026-06-19** — 30,274 claims (of 49,068; 16,915 dropped speaker-unresolved, 1,877 quote-unrecovered), 18,607 `MENTIONS`, 34,203 `MENTIONED_IN`, `status='alleged'` | `graph/neo4j_store.py` (`write_claims`), `cli/build_graph.py` (`--with-claims`) |
+| **`:Claim` graph layer → Neo4j (M4)** | ✅ **Loaded corpus-wide 2026-06-19; reloaded under ADR 0007** — ~46,546 claims (of 49,068) with the raw-speaker fallback (only quote-unrecovered + genuinely empty-speaker out), `MENTIONS` + `MENTIONED_IN`, `status='alleged'` | `graph/neo4j_store.py` (`write_claims`), `cli/build_graph.py` (`--with-claims`) |
 | Turn-speaker attribution validator (pre-step B) | ✅ Implemented (3-bucket partition: model-wrong / parser-gap / quote-unrecoverable) | `eval/attribution.py` |
-| FastAPI query layer (`apps/api`) | ❌ Not started (dir not scaffolded) | — |
-| React/Vite frontend (`apps/web`) | ❌ Not started (dir not scaffolded) | — |
+| FastAPI query layer (`apps/api`) | 🟡 **Built (M5)** — `/health`, `/search`, `/chunk/{id}/graph`, `/claim/{id}`; read-only; tests green | `apps/api/` |
+| React/Vite frontend (`apps/web`) | 🟡 **Built (M5)** — one read-only page (search → results → chunk graph → claim); mentions visibly distinct from claims | `apps/web/` |
 | Human review workflow | ❌ Not started | — |
 
 **M1 feasibility verified (2026-06-11, PyMuPDF over all 108 downloaded transcripts):**
@@ -404,18 +406,21 @@ the canonical store docs, so confirm before pinning).
    chunks → 49,068 claims, ≈US$20. The corpus-wide `structurally_asserted` sweep ran GREEN —
    **354 structural flags / 49,068 = 0.72%** (under the 2% gate), 0 unparseable; §C attribution
    triaged to **0 genuine graph-level misattributions** (`reports/sectionC_bucket1_review.md`).
-   The `:Claim` layer is loaded (30,274 claims). **New known limitation: 34% of claims (16,915)
-   dropped on `speaker_unresolved`** — see the "Post-`--all` reality" subsection below.
+   The `:Claim` layer was first loaded at 30,274 claims with **34% (16,915) dropped on
+   `speaker_unresolved`**; that drop was **RESOLVED by the raw-speaker fallback (ADR 0007)**,
+   reloading to ~46,546 — see the "Post-`--all` reality" subsection below.
 
 ### Post-`--all` reality (NEW — 2026-06-19, supersedes the "not yet run" framing above)
 
-- **Full extraction + corpus-wide claim load are DONE.** 49,068 claims extracted; 30,274
-  loaded into Neo4j (spine + SPOKE_IN + MENTIONED_IN + `:Claim`); post-`--all` sweep GREEN.
-- **Speaker-unresolved claim drop (HIGH — highest-value data fix).** 16,915 claims (34%) +
-  1,877 quote-unrecovered did not load — the speaker label didn't resolve to a seeded
-  `:Person` (subjects fall through to policy-(b); speakers do not). A third of the evidence is
-  absent from the graph. Fix: expand `seed_entities.yaml`, or give speakers the same `raw:`
-  fallback subjects get.
+- **Full extraction + corpus-wide claim load are DONE.** 49,068 claims extracted; first
+  loaded at 30,274, then **reloaded to ~46,546 under ADR 0007** (spine + SPOKE_IN +
+  MENTIONED_IN + `:Claim`); post-`--all` sweep GREEN.
+- **Speaker-unresolved claim drop (HIGH — highest-value data fix). RESOLVED (ADR 0007).**
+  16,915 claims (34%) were dropped because the speaker label didn't resolve to a seeded
+  `:Person` (subjects fall through to policy-(b); speakers did not). The fix gave speakers the
+  same `raw:` fallback subjects get: a non-empty unresolved speaker now loads as a raw,
+  flagged `STATED_BY :Person` (`speaker_unresolved=true`), recovering coverage to ~46,546;
+  only genuinely empty-speaker (and ~1,877 quote-unrecovered) claims stay out.
 - **ADR 0006 Follow-up 3 added:** the post-`--all` corpus-wide sweep (`scripts/postrun_sweep.py`
   — `structurally_asserted` + subject-faithfulness) is now the graph-load acceptance gate;
   ran GREEN (0.72% structural, 0 genuine misattributions).
@@ -494,8 +499,8 @@ are gated by the license/publication decision (§7.3), not by the data pipeline.
 | 1 | **Parse + speaker-aware chunk** (two paths: paged PDF / page-less bootstrap) | 0 | ✅ **M1 complete** | Every downloaded doc → chunks with `chunk_id`, page provenance (PDFs), speaker label, SHA256 lineage; deterministic, re-runnable |
 | 2 | **Embed + Qdrant load** into `commission_transcripts` | 1 | ✅ **M2 complete** | Semantic search returns relevant chunks with full payload (commission, day, page, chunk_id) |
 | 3 | **Deterministic + spaCy graph load** into Neo4j (spine + Person/Org/Place **mentions only**) | 1 | ✅ **M3 complete** — live smoke-tested 2026-06-14 (see §7.7) | `Document→Page→Chunk` populated; `MENTIONED_IN` edges; **no claims/facts** |
-| 4 | **LLM-assisted extraction** (Claude SDK) — claims (events/roles/positions later) | 3 (model §7.4 ✅) | ✅ **M4 COMPLETE 2026-06-19** — `--all` run, `:Claim` layer loaded corpus-wide | 49,068 claims extracted; 30,274 loaded (`STATED_BY`/`SUPPORTED_BY`/`MENTIONS`, `status='alleged'`), sweep GREEN; 34% dropped speaker-unresolved (open data fix) |
-| 5 | **API (`apps/api`)** over both stores, then **Web (`apps/web`)** | 2,4 (+license §7.3) | ❌ Not started (dirs not scaffolded) | MVP success-test flow works end-to-end; mentions visibly distinct from claims/findings |
+| 4 | **LLM-assisted extraction** (Claude SDK) — claims (events/roles/positions later) | 3 (model §7.4 ✅) | ✅ **M4 COMPLETE 2026-06-19** — `--all` run, `:Claim` layer loaded corpus-wide | 49,068 claims extracted; ~46,546 loaded under ADR 0007 (`STATED_BY`/`SUPPORTED_BY`/`MENTIONS`, `status='alleged'`), sweep GREEN; the prior 34% speaker-unresolved drop is RESOLVED (raw-speaker fallback) |
+| 5 | **API (`apps/api`)** over both stores, then **Web (`apps/web`)** | 2,4 (+license §7.3) | 🟡 **Built (M5) — code complete, tests green; pending live localhost demo at the review gate.** `apps/api` (FastAPI: `/health`, `/search`, `/chunk/{id}/graph`, `/claim/{id}`) + `apps/web` (Vite/React, one read-only page). Demo pre-flight: confirm `make load-qdrant` parity (~14,783 points). License (§7.3) still gates public hosting, not the localhost demo | MVP success-test flow works end-to-end; mentions visibly distinct from claims/findings |
 | 6 | **Human-review layer** — alias/dup resolution, high-risk claim confirmation | 4 | ❌ Not started | Reviewers can confirm/merge/flag; decisions persisted with provenance |
 
 **Earliest demonstrable slice:** corpus → step 1 → step 2 gives a working semantic search
@@ -509,8 +514,10 @@ See `docs/queries.md` query #5 for the provenance path Cypher.
 (`STATED_BY`/`SUPPORTED_BY`/`MENTIONS`) onto the spine — 1,221 claims loaded idempotently
 on the slice into a throwaway instance, both structural REDs clear. **The full `extract-corpus
 --all` + `build-graph --with-claims` + corpus-wide sweep are now DONE (2026-06-19)** — see
-"Post-`--all` reality" in §7. **Immediate next action:** confirm `load-qdrant` parity to close
-the MVP loop, then the speaker-unresolved 34% fix (seed expansion / `raw:` speaker fallback).
+"Post-`--all` reality" in §7. The speaker-unresolved 34% drop is RESOLVED (ADR 0007 raw-speaker
+fallback, ~46,546 loaded) and **M5 (`apps/api` + `apps/web`) is built and green**. **Immediate
+next action:** the M5 demo pre-flight — confirm `make load-qdrant` parity (~14,783 points), then
+run the localhost loop (`make stores-up` + `make api-dev` + `make web-dev`) as the review gate.
 
 ---
 

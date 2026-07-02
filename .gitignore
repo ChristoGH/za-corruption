@@ -51,6 +51,9 @@ vitest.config.*.timestamp-*.mjs
 !package.json
 !tsconfig.json
 !**/fixtures/**/*.json
+# apps/web build config + lockfile (the blanket *.json above would hide them)
+!apps/web/tsconfig.node.json
+!apps/web/package-lock.json
 
 # Logs
 *.log
@@ -86,3 +89,13 @@ playwright-storage-state.json
 # content about named individuals stays out of the repo).
 /data/cache/**
 !/data/cache/
+
+# Neo4j graph dumps (make backup) — large binaries containing derived content
+# about named individuals; keep out of the repo, store/back up separately.
+/backups/
+*.dump
+
+# Screen recordings / rendered video (hundreds of MB). Delivery artifacts, not
+# source; share via the outputs folder, never commit to git.
+/video-delivery/
+*.mp4

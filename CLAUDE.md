@@ -179,6 +179,24 @@ These supplement, and never override, the always-on `.cursor` rules:
 diffs, simplicity first, verify honestly, don't invent context, dependency discipline,
 the `Changed / Verified / Assumptions / Notes` final-report format). Read them.
 
+### Commit & branch discipline (binding — enforced by `scripts/hooks/` + branch protection)
+
+- **One atomic, green commit per logical sub-step.** Never bundle unrelated work into one commit.
+- **Every commit is green.** The `pre-commit` hook runs the test suite; a red tree cannot be
+  committed. Do not `--no-verify` to dodge it.
+- **Conventional, milestone-scoped messages:** `feat(mN): …` / `test(mN): …` / `docs(mN): …`
+  (also `fix|chore|refactor|perf|build|ci`). The `commit-msg` hook enforces the format.
+- **One branch per milestone** (`feat/mN-…`). The `pre-commit` hook refuses commits on `main`.
+- **The agent NEVER pushes and NEVER merges to `main`.** The `pre-push` hook blocks pushes
+  (`ALLOW_PUSH=1 git push` is the human, intentional override). Pushes/merges happen only at a
+  milestone boundary, by a human, after the review gate — and **server-side branch protection on
+  `main` (require PR + passing CI) is the authoritative gate** the agent cannot bypass.
+- End each session with the working tree committed on the milestone branch, nothing left dirty.
+- **No LLM artifacts in any output** (commits, docs, posts, comments): no tool-attribution
+  ("Built with Claude" / "Generated with" / "Co-Authored-By: Claude" / robot emoji), no em
+  dashes, no LLM tells. Write plainly. See `.cursor/rules/voice.mdc`. The `commit-msg` hook
+  rejects these in commit messages.
+
 Repo-specific notes:
 - **`.cursor/rules/30-medvoice-project-rules.mdc` belongs to a different project**
   (med-voice). It is scoped off (`alwaysApply: false`, medvoice glob) and does **not**

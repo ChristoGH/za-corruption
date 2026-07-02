@@ -182,8 +182,12 @@ entities:
   - id: person:vusimuzi-matlala
     name: Vusimuzi Matlala
     type: person
-    aliases: [MR MATLALA, MR M MATLALA]
-    note: Businessman ("Cat" Matlala) named in testimony; MR T MATLALA may be a different person — not aliased.
+    aliases: [MR MATLALA, MR M MATLALA, CAT MATLALA, VUSI MATLALA, MR VUSI MATLALA, VUSIMUZI CAT MATLALA]
+    note: >-
+      Businessman ("Cat" Matlala) named in testimony; "Vusimuzi Cat Matlala" appears as a
+      single surface in the record, binding the given names to the surname. MR T MATLALA may
+      be a different person — not aliased. Owns CAT VIP Security (org:cat-vip) per day-43
+      testimony; linked to Medicare 24 (org:medicare-24).
   - id: person:lt-gen-shibiri
     name: Lt-Gen Shibiri
     type: person
@@ -256,6 +260,30 @@ entities:
     type: org
     aliases: [THE COMMISSION, MADLANGA COMMISSION]
     note: Judicial Commission of Inquiry into Criminality, Political Interference and Corruption in the Criminal Justice System.
+
+  # ── EMPD / metro cluster (day-43 hearing) — added via scripts/suggest_aliases.py review ──
+  - id: org:cat-vip
+    name: CAT VIP Security Services
+    type: org
+    aliases: [CAT VIP, CAT VIP PROTECTION, CAT VIP PROTECTION UNIT, CAT SECURITY SERVICES, CAT SECURITY]
+    note: >-
+      Private security company. Day-43 testimony (COMMISSIONER MKHWANAZI, pp44-45):
+      "CAT VIP Security … that was owned by Mr Vusi Matlala" — links Matlala
+      (person:vusimuzi-matlala) to the EMPD thread. VERIFY ownership/spelling before
+      publication. Bare "CAT" deliberately not aliased.
+  - id: org:medicare-24
+    name: Medicare 24
+    type: org
+    aliases: [MEDICARE, MEDICARE24, MEDICARE 24 EMERGENCY MEDICAL SERVICES]
+    note: >-
+      Emergency medical services company in the Matlala cluster; MOU with Ekurhuleni (JM11)
+      discussed on day 43. The combined "Medicare Emergency Medical Services/Anubis Protection
+      Services" surface is a SEPARATE entity — not folded in here.
+  - id: org:empd
+    name: Ekurhuleni Metropolitan Police Department
+    type: org
+    aliases: [EMPD]
+    note: Metro police department; institutional centre of the day-43 hearing. Distinct from the City of Ekurhuleni.
 
   # ── Procedural roles ───────────────────────────────────────────────────
   - id: role:chairperson

@@ -1,0 +1,17 @@
+---
+description: Voice — human and clean, no LLM artifacts (no tool attribution, no em dashes, no LLM tells)
+alwaysApply: true
+---
+
+# Voice — no LLM artifacts
+
+All output must read as human-written: posts, docs, code comments, and commit messages.
+
+- No tool attribution. Never write "Built with Claude / AI / graph tech", "Generated with",
+  "Co-Authored-By: Claude", or a robot emoji. Credit nothing in the artifact.
+- No em dashes. Use commas, periods, parentheses, colons, or rewrite the sentence.
+- Avoid LLM tells: "it's not just X, it's Y", "here's the thing", delve, tapestry, testament to,
+  underscore, robust, leverage, "in today's landscape", over-hedging, excessive bold,
+  triadic-list overuse, curly quotes or odd-unicode paste residue.
+- Write plainly and directly. This constrains surface style only. It never reduces the depth,
+  rigour, or completeness of the work.
