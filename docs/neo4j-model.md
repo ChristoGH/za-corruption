@@ -23,6 +23,13 @@ numbers. When parsing arrives, attach chunks directly under `:Document` with
 `authoritative=false` on the document node — do **not** invent `:Page` nodes for
 bootstrap text. Official PDFs use the full `Document → Page → Chunk` spine.
 
+**Video caption tier note:** video-only hearing days ingested from YouTube caption
+tracks (`ingest-video`, `source_type="video"`, `document_type="Video"`,
+`authoritative=false`) take the same page-less path: chunks attach directly under the
+`:Document` and carry `time_start`/`time_end` (seconds into the video) instead of
+`page_start`/`page_end`. The registry record's `transcription_method` says how the text
+was produced. Machine-transcribed text is never presented as official transcript.
+
 ## Relationship naming (settled)
 
 | Use | Relationship |

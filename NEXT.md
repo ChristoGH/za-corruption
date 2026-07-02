@@ -48,6 +48,10 @@ Bring the branch to a clean, mergeable state at the human review gate:
 - Speaker-drop: RESOLVED via ADR 0007 (raw `:Person` speakers, flagged `speaker_unresolved`).
 
 ## Map
+- `packages/ingestion/commission_ingestion/video/` + `ingest-video` CLI: the video captions
+  lane (fetch YouTube captions, VTT to time-provenanced chunks; `authoritative=false`,
+  `transcription_method` recorded). Built on `feat/m5-video-ingest`; whisper+diarisation is
+  the later quality lane. See `plans/staying-current-pipeline.md` component 2.
 - `docs/track-reconciliation.md` — the two tracks (original M0–M6 plan vs post-M4 analytical
   work), where they collide, and why Series B depends on the unbuilt M6 review gate
 - `plans/m5-public-surface.md` — the M5 build prompt (apps/api + apps/web; the safe lane)

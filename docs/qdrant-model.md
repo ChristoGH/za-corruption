@@ -43,13 +43,16 @@ slice:
 | `day_no` | int \| null | hearing day number |
 | `date` | string | ISO `YYYY-MM-DD` where known |
 | `source_url` | string | download URL |
-| `authoritative` | bool | `true` for official PDFs; `false` for DSFSI bootstrap plaintext |
+| `authoritative` | bool | `true` for official PDFs; `false` for DSFSI bootstrap plaintext and video captions |
 | `filename` | string | |
 | `sha256` | string | document hash (links to Neo4j `:Document`) |
-| `page_start` | int | |
-| `page_end` | int | |
+| `page_start` | int \| null | null for page-less sources (video captions) |
+| `page_end` | int \| null | null for page-less sources (video captions) |
+| `time_start` | float \| null | seconds into the video, caption-derived chunks only |
+| `time_end` | float \| null | seconds into the video, caption-derived chunks only |
+| `transcription_method` | string \| null | e.g. `"youtube_auto_captions"`; null for official documents |
 | `chunk_id` | string | links to Neo4j `:Chunk` |
-| `speakers` | string[] | speaker labels in the chunk |
+| `speakers` | string[] | speaker labels in the chunk (empty for caption chunks) |
 
 ## Filtering examples
 
