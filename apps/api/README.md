@@ -25,6 +25,11 @@ make stores-up          # Qdrant + Neo4j via docker-compose
 make api-dev            # uvicorn on http://localhost:8000 (reload)
 ```
 
+`/search` embeds the query with sentence-transformers/torch, pulled in via the
+`commission-ingestion[vector]` dependency. If search returns 500 with an import
+error, the vector extra is missing: `uv pip install "sentence-transformers>=3.0"`.
+The first `/search` also downloads the BGE model (~130 MB) once.
+
 Config comes from the environment (defaults match docker-compose):
 `QDRANT_URL`, `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `WEB_ORIGIN`.
 CORS allows the `WEB_ORIGIN` only.

@@ -43,12 +43,12 @@ see [DISCLAIMER.md](DISCLAIMER.md).
 | Parse PDF → speaker-aware chunks | ✅ Implemented (Madlanga: 14,783 active chunks) |
 | Descriptive corpus statistics + integrity pass (Post #1) | ✅ Implemented (blocking duplicate/reconciliation checks) |
 | Embeddings → Qdrant (semantic search CLI) | ✅ Implemented (14,783 points, bge-small-en-v1.5) |
-| Graph load → Neo4j | ⬜ Planned (constraints + docker service ready) |
-| LLM-assisted claim/event extraction (Claude SDK) | ⬜ Planned |
-| API + web (search → chunk → graph) | ⬜ Planned |
+| Graph load → Neo4j (spine + mentions) | ✅ Implemented |
+| LLM-assisted claim extraction (Claude SDK, Haiku) | ✅ Implemented (49,068 claims; ~46,546 loaded, ADR 0007) |
+| API + web (search → chunk → graph → claim) | ✅ Implemented (read-only FastAPI + React; see Quick start) |
 
-`70` passing tests across ingestion, parsing, statistics, integrity checks, charts, and
-the vector store. See [docs/project-state.md](docs/project-state.md)
+`168` passing tests across ingestion, parsing, statistics, integrity checks, charts, the
+vector store, and the API. See [docs/project-state.md](docs/project-state.md)
 for a verified, detailed snapshot.
 
 ---
@@ -88,25 +88,55 @@ official site → discover → download (+SHA256) → parse PDF → speaker-awar
 
 ---
 
-## Quick start
+## Quick start — run the search + evidence-graph app
 
-Requires Python ≥3.12 and [uv](https://docs.astral.sh/uv/). Source retrieval works today;
-later stages are in progress.
+Brings the read-only web surface up from a clean checkout: search testimony → open a
+result → see its mentions and claims → drill into a claim's provenance.
+
+**Prerequisites:** [uv](https://docs.astral.sh/uv/) (Python ≥3.12), Docker + Docker Compose,
+and Node.js + npm (for the web app). Create a repo-root `.env` (git-ignored) with at least:
 
 ```bash
-uv sync --all-packages --all-extras
-
-# Discover sources into data/sources/source_registry.jsonl
-uv run retrieve-sources --commission madlanga --discover-only
-uv run retrieve-sources --commission zondo --discover-only      # DSFSI bootstrap (default)
-
-# Discover, then download into data/raw/<commission>/
-uv run retrieve-sources --commission both --download
-
-make test
+NEO4J_PASSWORD=changeme          # must match the value docker-compose starts Neo4j with
+# ANTHROPIC_API_KEY=sk-...        # only needed to run claim extraction yourself
 ```
 
-Full commands: [docs/getting-started.md](docs/getting-started.md).
+```bash
+# 1. Install all workspace packages + extras (this pulls the embedder: sentence-transformers/torch).
+make install
+
+# 2. Start the stores and apply Neo4j constraints (one-time).
+make stores-up                   # Qdrant :6333 + Neo4j :7687/:7474 via docker-compose
+make neo4j-constraints
+
+# 3. Populate the stores (they start EMPTY — this is the step that makes the app show data).
+make load-qdrant                 # embed + load chunks (COMMISSION=madlanga by default)
+uv run build-graph --commission madlanga --with-claims   # spine + mentions + the :Claim layer
+
+# 4. Run the API (leave it running).
+make api-dev                     # http://localhost:8000  (GET /health should report both stores up)
+
+# 5. Run the web app (new terminal).
+make web-install                 # once, installs node deps
+make web-dev                     # http://localhost:5173
+```
+
+Then search `disbanding of task team`, click a result, and confirm mentions (leads) render
+separately from claims (attributed testimony).
+
+**Where the data comes from.** Steps 3+ assume the corpus is already parsed and extracted
+locally. If you have a Neo4j snapshot, restore it instead of rebuilding:
+`make restore FROM=backups/<timestamp>` (then still run `make load-qdrant`). A cold clone
+with no local corpus must first run the ingestion pipeline (discover → download → parse →
+extract) — see [docs/getting-started.md](docs/getting-started.md); claim extraction needs an
+`ANTHROPIC_API_KEY`. `build-graph` without `--with-claims` loads mentions only.
+
+**Notes.** `/search` embeds the query at request time, so the vector extra must be present —
+`make install` handles it; installing the API alone will 500 on search. The first search
+downloads the BGE model (~130 MB) once. `make test` runs the ingestion + API suites with no
+live stores (DI-injected fakes).
+
+Source-retrieval only, without the app: see [docs/getting-started.md](docs/getting-started.md).
 
 ---
 
@@ -122,9 +152,12 @@ Madlanga-first; each milestone ends with a public, demonstrable artifact.
       chunks embedded and searchable: `search-corpus "query" [--day N] [--speaker LABEL]`;
       a blocking integrity pass caught two duplicate publications — both excluded via
       human-reviewed `superseded_by` registry records and purged from the store).
-- [ ] **M3 — Mentions-only graph in Neo4j** + a co-occurrence network render.
-- [ ] **M4 — Claims layer (Claude SDK)** behind a human-review gate.
-- [ ] **M5 — Thin public surface** (FastAPI + a read-only web page) for the end-to-end flow.
+- [x] **M3 — Mentions-only graph in Neo4j** + a co-occurrence network render ✅.
+- [x] **M4 — Claims layer (Claude SDK)** ✅ (Haiku full-corpus extraction; canary-signed;
+      raw-speaker fallback per ADR 0007). Human-review gate (M6) still to build before
+      publishing system-originated findings.
+- [x] **M5 — Thin public surface** ✅ (read-only FastAPI + React; search → chunk graph →
+      claim provenance, mentions kept distinct from claims). See **Quick start** above.
 
 **MVP success test:** search Qdrant for a topic → open a result → jump from that chunk into
 Neo4j to see the connected people, organisations, places, and hearing day — with mentions

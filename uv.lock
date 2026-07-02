@@ -234,7 +234,7 @@ name = "commission-api"
 version = "0.1.0"
 source = { editable = "apps/api" }
 dependencies = [
-    { name = "commission-ingestion" },
+    { name = "commission-ingestion", extra = ["vector"] },
     { name = "fastapi" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -247,7 +247,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "commission-ingestion", editable = "packages/ingestion" },
+    { name = "commission-ingestion", extras = ["vector"], editable = "packages/ingestion" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },

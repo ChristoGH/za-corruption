@@ -7,8 +7,11 @@ name = "commission-api"
 version = "0.1.0"
 description = "Read-only FastAPI surface over the commission stores (M5)"
 requires-python = ">=3.12"
+# commission-ingestion[vector] pulls sentence-transformers + torch: the /search
+# endpoint embeds the query at request time, so the embedder is a hard runtime
+# dependency of this API, not an optional extra. Without it /search returns 500.
 dependencies = [
-    "commission-ingestion",
+    "commission-ingestion[vector]",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
 ]

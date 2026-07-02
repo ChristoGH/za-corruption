@@ -33,6 +33,10 @@ make web-dev        # Vite dev server on http://localhost:5173
 
 Point the app at a non-default API with `VITE_API_BASE` (see `.env.example`).
 
+These four commands assume the stores are installed and populated. For a full from-scratch
+bring-up (deps, `.env`, starting and loading the stores, then both apps), follow the
+**Quick start** in the [root README](../../README.md).
+
 ## Build
 
 ```sh
